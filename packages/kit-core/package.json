@@ -1,0 +1,16 @@
+{
+    "name": "kit-core",
+    "version": "1.0.0",
+    "description": "Kitwork VCS core engine — content-addressable storage, commits, branches",
+    "main": "src/index.js",
+    "scripts": {
+        "test": "node --test tests/"
+    },
+    "keywords": [
+        "vcs",
+        "git",
+        "kitwork",
+        "core"
+    ],
+    "license": "MIT"
+}

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.next/
+
+# Convex
+.env.local
+
+# Data
+packages/kit-server/data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Kitwork repos
+.kit/
+
+# Build
+dist/
+build/

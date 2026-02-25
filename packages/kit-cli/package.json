@@ -1,0 +1,25 @@
+{
+    "name": "kitwork",
+    "version": "1.0.0",
+    "description": "Kitwork — Your own Git. A complete version control system CLI.",
+    "main": "bin/kit.js",
+    "bin": {
+        "kit": "./bin/kit.js"
+    },
+    "scripts": {
+        "test": "echo \"No tests yet\""
+    },
+    "dependencies": {
+        "commander": "^12.0.0",
+        "chalk": "^4.1.2",
+        "kit-core": "file:../kit-core"
+    },
+    "keywords": [
+        "vcs",
+        "git",
+        "version-control",
+        "kitwork",
+        "cli"
+    ],
+    "license": "MIT"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "kitwork",
+  "version": "1.0.0",
+  "description": "Kitwork — Your own Git-like version control system",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "echo \"No root tests yet\""
+  },
+  "keywords": ["vcs", "git", "version-control", "kitwork"],
+  "author": "",
+  "license": "MIT"
+}
