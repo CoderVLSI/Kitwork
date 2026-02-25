@@ -121,7 +121,7 @@ export const login = mutation({
 
         // Verify password
         const bcrypt = require("bcryptjs");
-        const valid = await bcrypt.compare(args.password, user.passwordHash);
+        const valid = await bcrypt.compare(args.password, user.passwordHash as string);
         if (!valid) throw new Error("Invalid credentials");
 
         // Generate JWT token
@@ -158,11 +158,11 @@ export const verifyToken = query({
 
         return {
             id: user._id,
-            username: user.username,
-            email: user.email,
-            displayName: user.displayName,
-            bio: user.bio,
-            avatarUrl: user.avatarUrl,
+            username: user.username as string,
+            email: user.email as string,
+            displayName: user.displayName as string,
+            bio: user.bio as string | undefined,
+            avatarUrl: user.avatarUrl as string | undefined,
         };
     },
 });
@@ -214,11 +214,11 @@ export const me = query({
         if (!user) return null;
         return {
             id: user._id,
-            username: user.username,
-            email: user.email,
-            displayName: user.displayName,
-            bio: user.bio,
-            avatarUrl: user.avatarUrl,
+            username: user.username as string,
+            email: user.email as string,
+            displayName: user.displayName as string,
+            bio: user.bio as string | undefined,
+            avatarUrl: user.avatarUrl as string | undefined,
         };
     },
 });
