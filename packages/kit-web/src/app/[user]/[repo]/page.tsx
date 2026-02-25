@@ -6,7 +6,9 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 
 export default function RepoPage({ params }: { params: Promise<{ user: string; repo: string }> }) {
-    const { user: username, repo: repoName } = use(params);
+    const rawParams = use(params);
+    const username = decodeURIComponent(rawParams.user);
+    const repoName = decodeURIComponent(rawParams.repo);
     const [tab, setTab] = useState<"code" | "commits">("code");
     const [currentPath, setCurrentPath] = useState("");
     const [viewingFile, setViewingFile] = useState<string | null>(null);

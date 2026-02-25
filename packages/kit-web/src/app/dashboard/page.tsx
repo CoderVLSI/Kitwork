@@ -37,6 +37,14 @@ export default function DashboardPage() {
     const createRepo = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
+
+        // Validate repo name: no spaces, only alphanumeric and dash/underscore
+        const nameValidation = /^[a-zA-Z0-9_-]+$/;
+        if (!nameValidation.test(newRepo.name)) {
+            alert("Repository name can only contain letters, numbers, dashes, and underscores (no spaces).");
+            return;
+        }
+
         try {
             await createRepoMutation({
                 name: newRepo.name,
@@ -113,10 +121,12 @@ export default function DashboardPage() {
                                         type="text"
                                         value={newRepo.name}
                                         onChange={(e) => setNewRepo({ ...newRepo, name: e.target.value })}
+                                        pattern="[a-zA-Z0-9_-]+"
                                         className="w-full px-4 py-3 rounded-xl bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-purple-500 transition-colors"
                                         placeholder="my-awesome-project"
                                         required
                                     />
+                                    <p className="text-xs text-[var(--kit-text-muted)] mt-1">Letters, numbers, dashes, and underscores only (no spaces)</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">Description</label>
