@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
@@ -7,14 +8,14 @@ export default function Home() {
       <section className="relative pt-32 pb-20 px-4 overflow-hidden">
         {/* Background effects */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[128px]" />
-          <div className="absolute top-40 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[128px]" />
-          <div className="absolute -bottom-32 left-1/2 w-96 h-96 bg-green-500/5 rounded-full blur-[128px]" />
+          <div className="absolute top-20 left-1/4 w-96 h-96 bg-orange-500/10 rounded-full blur-[128px]" />
+          <div className="absolute top-40 right-1/4 w-96 h-96 bg-amber-500/10 rounded-full blur-[128px]" />
+          <div className="absolute -bottom-32 left-1/2 w-96 h-96 bg-yellow-500/5 rounded-full blur-[128px]" />
         </div>
 
         <div className="max-w-5xl mx-auto text-center relative z-10">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs text-purple-300 mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs text-orange-300 mb-8">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             Open Source Version Control
           </div>
@@ -35,7 +36,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             <Link
               href="/register"
-              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-all hover:shadow-xl hover:shadow-purple-500/25 hover:-translate-y-0.5"
+              className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-semibold transition-all hover:shadow-xl hover:shadow-orange-500/25 hover:-translate-y-0.5"
             >
               Start Using Kitwork
             </Link>
@@ -48,7 +49,7 @@ export default function Home() {
           </div>
 
           {/* Terminal Preview */}
-          <div className="max-w-2xl mx-auto glow-purple rounded-2xl overflow-hidden">
+          <div className="max-w-2xl mx-auto glow-orange rounded-2xl overflow-hidden">
             <div className="glass rounded-2xl overflow-hidden">
               {/* Terminal Header */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--kit-border)]">
@@ -213,11 +214,17 @@ export default function Home() {
       <footer className="border-t border-[var(--kit-border)] py-12 px-4">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-purple-500 to-cyan-400 flex items-center justify-center text-white font-black text-[10px]">
-              K
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/25">
+              <Image
+                src="/mascot.png"
+                alt="Kitwork Mascot"
+                width={32}
+                height={32}
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="text-sm font-bold">
-              Kit<span className="text-purple-400">work</span>
+              Kit<span className="text-orange-400">work</span>
             </span>
           </div>
           <div className="flex gap-6 text-sm text-[var(--kit-text-muted)]">

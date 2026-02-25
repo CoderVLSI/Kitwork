@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 
 export default function Navbar() {
@@ -11,12 +12,18 @@ export default function Navbar() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
-                    <Link href="/" className="flex items-center gap-2 group">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-cyan-400 flex items-center justify-center text-white font-black text-sm group-hover:scale-110 transition-transform">
-                            K
+                    <Link href="/" className="flex items-center gap-2.5 group">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-orange-500/25">
+                            <Image
+                                src="/mascot.png"
+                                alt="Kitwork Mascot"
+                                width={40}
+                                height={40}
+                                className="w-full h-full object-cover"
+                            />
                         </div>
                         <span className="text-lg font-bold text-white">
-                            Kit<span className="text-purple-400">work</span>
+                            Kit<span className="text-orange-400">work</span>
                         </span>
                     </Link>
 

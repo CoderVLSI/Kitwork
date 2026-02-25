@@ -7,8 +7,8 @@
   --kit-border: #2a2a3a;
   --kit-text: #e4e4ef;
   --kit-text-muted: #8888a0;
-  --kit-primary: #8b5cf6;
-  --kit-primary-glow: rgba(139, 92, 246, 0.3);
+  --kit-primary: #f97316;
+  --kit-primary-glow: rgba(249, 115, 22, 0.3);
   --kit-green: #22c55e;
   --kit-red: #ef4444;
   --kit-yellow: #eab308;
@@ -37,6 +37,10 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: var(--kit-text-muted); }
 
 /* Glow effects */
+.glow-orange {
+  box-shadow: 0 0 40px var(--kit-primary-glow), 0 0 80px rgba(249, 115, 22, 0.15);
+}
+
 .glow-purple {
   box-shadow: 0 0 40px var(--kit-primary-glow), 0 0 80px rgba(139, 92, 246, 0.1);
 }
@@ -57,7 +61,7 @@ body {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 50%, #22c55e 100%);
+  background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fbbf24 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
