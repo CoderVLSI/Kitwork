@@ -14,6 +14,15 @@ export default defineSchema({
         .index("by_username", ["username"])
         .index("by_email", ["email"]),
 
+    // JWT tokens table for API authentication
+    tokens: defineTable({
+        userId: v.id("users"),
+        token: v.string(), // JWT token hash
+        expiresAt: v.number(), // Unix timestamp
+    })
+        .index("by_token", ["token"])
+        .index("by_user", ["userId"]),
+
     // Repositories table
     repos: defineTable({
         name: v.string(),
@@ -56,4 +65,16 @@ export default defineSchema({
     })
         .index("by_repo_branch", ["repoId", "branch"])
         .index("by_hash", ["repoId", "hash"]),
+
+    // Activities — user activity feed
+    activities: defineTable({
+        userId: v.id("users"),
+        type: v.string(), // "repo_created", "commit_pushed", "profile_updated", "file_created"
+        targetId: v.optional(v.id("repos")), // Related repo if applicable
+        description: v.string(), // Human-readable description
+        metadata: v.optional(v.string()), // JSON string with extra data
+        timestamp: v.number(),
+    })
+        .index("by_user", ["userId"])
+        .index("by_user_time", ["userId", "timestamp"]),
 });

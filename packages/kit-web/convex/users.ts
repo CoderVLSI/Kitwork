@@ -1,15 +1,53 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { SignJWT, jwtVerify } from "jose";
 
-// Simple hash function for passwords (in production, use proper bcrypt via an action)
-function simpleHash(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
+const JWT_SECRET = new TextEncoder().encode(
+    process.env.JWT_SECRET || "kitwork-secret-key-change-in-production"
+);
+
+// Hash password using bcrypt (via action for Node.js environment)
+export const hashPassword = mutation({
+    args: { password: v.string() },
+    handler: async (ctx, args) => {
+        // Import bcrypt dynamically for action compatibility
+        const bcrypt = require("bcryptjs");
+        const hash = await bcrypt.hash(args.password, 10);
+        return hash;
+    },
+});
+
+// Verify password
+export const verifyPassword = mutation({
+    args: { password: v.string(), hash: v.string() },
+    handler: async (ctx, args) => {
+        const bcrypt = require("bcryptjs");
+        const valid = await bcrypt.compare(args.password, args.hash);
+        return valid;
+    },
+});
+
+// Generate JWT token
+async function generateToken(userId: string, username: string): Promise<string> {
+    const token = await new SignJWT({ userId, username })
+        .setProtectedHeader({ alg: "HS256" })
+        .setIssuedAt()
+        .setExpirationTime("30d")
+        .sign(JWT_SECRET);
+    return token;
+}
+
+// Verify JWT token
+export async function verifyJwtToken(token: string): Promise<{ userId: string; username: string } | null> {
+    try {
+        const { payload } = await jwtVerify(token, JWT_SECRET);
+        return {
+            userId: payload.userId as string,
+            username: payload.username as string,
+        };
+    } catch {
+        return null;
     }
-    return Math.abs(hash).toString(36) + str.length.toString(36);
 }
 
 export const register = mutation({
@@ -33,14 +71,29 @@ export const register = mutation({
             .first();
         if (existingEmail) throw new Error("Email already taken");
 
+        // Hash password
+        const bcrypt = require("bcryptjs");
+        const passwordHash = await bcrypt.hash(args.password, 10);
+
         // Create user
         const userId = await ctx.db.insert("users", {
             username: args.username,
             email: args.email,
-            passwordHash: simpleHash(args.password),
+            passwordHash,
             displayName: args.displayName || args.username,
             bio: "",
             avatarUrl: "",
+        });
+
+        // Generate JWT token
+        const token = await generateToken(userId, args.username);
+
+        // Store token (hash) for later revocation if needed
+        const tokenHash = await bcrypt.hash(token, 10);
+        await ctx.db.insert("tokens", {
+            userId,
+            token: tokenHash,
+            expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
         });
 
         return {
@@ -48,6 +101,7 @@ export const register = mutation({
             username: args.username,
             email: args.email,
             displayName: args.displayName || args.username,
+            token,
         };
     },
 });
@@ -64,16 +118,82 @@ export const login = mutation({
             .first();
 
         if (!user) throw new Error("Invalid credentials");
-        if (user.passwordHash !== simpleHash(args.password)) {
-            throw new Error("Invalid credentials");
-        }
+
+        // Verify password
+        const bcrypt = require("bcryptjs");
+        const valid = await bcrypt.compare(args.password, user.passwordHash);
+        if (!valid) throw new Error("Invalid credentials");
+
+        // Generate JWT token
+        const token = await generateToken(user._id, user.username);
+
+        // Store token
+        const tokenHash = await bcrypt.hash(token, 10);
+        await ctx.db.insert("tokens", {
+            userId: user._id,
+            token: tokenHash,
+            expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+        });
 
         return {
             id: user._id,
             username: user.username,
             email: user.email,
             displayName: user.displayName,
+            bio: user.bio,
+            avatarUrl: user.avatarUrl,
+            token,
         };
+    },
+});
+
+export const verifyToken = query({
+    args: { token: v.string() },
+    handler: async (ctx, args) => {
+        const result = await verifyJwtToken(args.token);
+        if (!result) return null;
+
+        const user = await ctx.db.get(result.userId as any);
+        if (!user) return null;
+
+        return {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            bio: user.bio,
+            avatarUrl: user.avatarUrl,
+        };
+    },
+});
+
+export const updateProfile = mutation({
+    args: {
+        userId: v.id("users"),
+        displayName: v.optional(v.string()),
+        bio: v.optional(v.string()),
+        avatarUrl: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const user = await ctx.db.get(args.userId);
+        if (!user) throw new Error("User not found");
+
+        const updates: any = {};
+        if (args.displayName !== undefined) updates.displayName = args.displayName;
+        if (args.bio !== undefined) updates.bio = args.bio;
+        if (args.avatarUrl !== undefined) updates.avatarUrl = args.avatarUrl;
+
+        await ctx.db.patch(args.userId, updates);
+
+        // Track activity
+        await ctx.db.insert("activities", {
+            userId: args.userId,
+            type: "profile_updated",
+            description: "Updated their profile",
+            timestamp: Math.floor(Date.now() / 1000),
+        });
+
+        return { success: true };
     },
 });
 
@@ -98,6 +218,7 @@ export const me = query({
             email: user.email,
             displayName: user.displayName,
             bio: user.bio,
+            avatarUrl: user.avatarUrl,
         };
     },
 });

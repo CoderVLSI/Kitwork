@@ -96,6 +96,12 @@ export default function Navbar() {
                                 >
                                     Dashboard
                                 </Link>
+                                <Link
+                                    href="/settings"
+                                    className="text-sm text-[var(--kit-text-muted)] hover:text-white transition-colors"
+                                >
+                                    Settings
+                                </Link>
                                 <div className="flex items-center gap-2 pl-3 border-l border-[var(--kit-border)]">
                                     <Link
                                         href={`/${user.username}`}
@@ -168,6 +174,7 @@ export default function Navbar() {
                                     <span className="text-sm text-white">{user.displayName || user.username}</span>
                                 </div>
                                 <Link href="/dashboard" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Dashboard</Link>
+                                <Link href="/settings" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Settings</Link>
                                 <Link href={`/${user.username}`} className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Profile</Link>
                                 <button onClick={handleLogout} className="block w-full text-left text-sm text-[var(--kit-text-muted)] hover:text-red-400">Sign out</button>
                             </>

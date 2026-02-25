@@ -28,6 +28,15 @@ export const create = mutation({
             defaultBranch: "main",
         });
 
+        // Track activity
+        await ctx.db.insert("activities", {
+            userId: args.ownerId,
+            type: "repo_created",
+            targetId: repoId,
+            description: `Created repository ${args.name}`,
+            timestamp: Math.floor(Date.now() / 1000),
+        });
+
         return { id: repoId, name: args.name, owner: args.ownerUsername };
     },
 });
@@ -419,6 +428,16 @@ export const createFile = mutation({
             message: args.message,
             timestamp: now,
             branch: args.branch,
+        });
+
+        // Track activity - get userId from repo owner
+        await ctx.db.insert("activities", {
+            userId: repo.ownerId,
+            type: "file_created",
+            targetId: repo._id,
+            description: `Created ${args.path} in ${args.repoName}`,
+            metadata: JSON.stringify({ path: args.path, message: args.message }),
+            timestamp: now,
         });
 
         return { hash: commitHash, treeHash };

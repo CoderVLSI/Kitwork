@@ -2,6 +2,7 @@
 
 import { useState, use, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
@@ -25,10 +26,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     }, []);
 
     const profileUser = useQuery(api.users.getByUsername, { username });
-    const userRepos = useQuery(
-        api.repos.listByUser,
-        { ownerUsername: username }
-    );
+    const userRepos = useQuery(api.repos.listByUser, { ownerUsername: username });
+    const activities = useQuery(api.activities.getActivities, { username });
 
     const isOwnProfile = currentUser?.username === username;
 
@@ -52,8 +51,27 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         );
     }
 
-    const publicRepos = userRepos?.filter(r => r.isPublic) || [];
+    const publicRepos = userRepos?.filter((r: any) => r.isPublic) || [];
     const repoCount = publicRepos.length;
+
+    const formatDate = (ts: number) => {
+        const now = Date.now();
+        const seconds = Math.floor((now - ts * 1000) / 1000);
+        if (seconds < 60) return "just now";
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        return `${Math.floor(seconds / 86400)}d ago`;
+    };
+
+    const getActivityIcon = (type: string) => {
+        switch (type) {
+            case "repo_created": return "📦";
+            case "file_created":
+            case "commit_pushed": return "📝";
+            case "profile_updated": return "👤";
+            default: return "📌";
+        }
+    };
 
     return (
         <div className="min-h-screen pt-24 px-4">
@@ -62,15 +80,31 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                 <div className="glass rounded-2xl p-8 mb-8">
                     <div className="flex items-start gap-6">
                         {/* Avatar */}
-                        <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-orange-500/25">
-                            {profileUser.displayName?.[0]?.toUpperCase() || username[0].toUpperCase()}
-                        </div>
+                        {profileUser.avatarUrl ? (
+                            <img
+                                src={profileUser.avatarUrl}
+                                alt="Avatar"
+                                className="w-24 h-24 rounded-2xl object-cover shadow-lg shadow-orange-500/25"
+                            />
+                        ) : (
+                            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-black text-3xl shadow-lg shadow-orange-500/25">
+                                {profileUser.displayName?.[0]?.toUpperCase() || username[0].toUpperCase()}
+                            </div>
+                        )}
 
                         {/* Info */}
                         <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                                 <h1 className="text-2xl font-bold text-white">{profileUser.displayName || username}</h1>
                                 <span className="text-sm text-[var(--kit-text-muted)]">@{username}</span>
+                                {isOwnProfile && (
+                                    <Link
+                                        href="/settings"
+                                        className="text-xs px-2 py-1 rounded-full border border-[var(--kit-border)] text-[var(--kit-text-muted)] hover:text-white hover:border-white/30 transition-all"
+                                    >
+                                        Edit profile
+                                    </Link>
+                                )}
                             </div>
                             {profileUser.bio && (
                                 <p className="text-[var(--kit-text-muted)] mb-4">{profileUser.bio}</p>
@@ -96,7 +130,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                 </div>
 
                 {/* Repositories Section */}
-                <div>
+                <div className="mb-8">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                             <svg className="w-5 h-5 text-[var(--kit-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,7 +168,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                         </div>
                     ) : (
                         <div className="grid md:grid-cols-2 gap-4">
-                            {publicRepos.slice(0, 6).map((repo) => (
+                            {publicRepos.slice(0, 6).map((repo: any) => (
                                 <Link
                                     key={repo._id}
                                     href={`/${username}/${repo.name}`}
@@ -157,17 +191,38 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                     )}
                 </div>
 
-                {/* Activity Section (placeholder) */}
-                <div className="mt-8">
+                {/* Activity Section */}
+                <div>
                     <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
                         <svg className="w-5 h-5 text-[var(--kit-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         Recent activity
                     </h2>
-                    <div className="glass rounded-xl p-8 text-center">
-                        <p className="text-sm text-[var(--kit-text-muted)]">Activity feed coming soon...</p>
-                    </div>
+
+                    {activities === undefined ? (
+                        <div className="glass rounded-xl p-8 text-center">
+                            <p className="text-sm text-[var(--kit-text-muted)]">Loading activity...</p>
+                        </div>
+                    ) : activities.length === 0 ? (
+                        <div className="glass rounded-xl p-8 text-center">
+                            <p className="text-sm text-[var(--kit-text-muted)]">No recent activity</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {activities.map((activity: any) => (
+                                <div key={activity._id} className="glass rounded-xl p-4 hover:border-orange-500/30 transition-all">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-xl">{getActivityIcon(activity.type)}</span>
+                                        <div className="flex-1">
+                                            <p className="text-sm text-white">{activity.description}</p>
+                                            <p className="text-xs text-[var(--kit-text-muted)] mt-1">{formatDate(activity.timestamp)}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
