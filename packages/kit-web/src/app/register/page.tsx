@@ -11,7 +11,7 @@ export default function RegisterPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const registerMutation = useMutation(api.users.register);
+    const registerMutation = useMutation(api.users.registerWithPassword);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

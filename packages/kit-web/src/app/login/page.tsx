@@ -12,7 +12,7 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const loginMutation = useMutation(api.users.login);
+    const loginMutation = useMutation(api.users.loginWithPassword);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

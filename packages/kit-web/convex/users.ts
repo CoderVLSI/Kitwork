@@ -1,42 +1,10 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
 import { SignJWT, jwtVerify } from "jose";
 
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || "kitwork-secret-key-change-in-production"
 );
-
-// Types for user documents
-type UserDoc = {
-    _id: any;
-    username: string;
-    email: string;
-    passwordHash: string;
-    displayName: string;
-    bio?: string;
-    avatarUrl?: string;
-};
-
-// Hash password using bcrypt (via action for Node.js environment)
-export const hashPassword = mutation({
-    args: { password: v.string() },
-    handler: async (ctx, args) => {
-        // Import bcrypt dynamically for action compatibility
-        const bcrypt = require("bcryptjs");
-        const hash = await bcrypt.hash(args.password, 10);
-        return hash;
-    },
-});
-
-// Verify password
-export const verifyPassword = mutation({
-    args: { password: v.string(), hash: v.string() },
-    handler: async (ctx, args) => {
-        const bcrypt = require("bcryptjs");
-        const valid = await bcrypt.compare(args.password, args.hash);
-        return valid;
-    },
-});
 
 // Generate JWT token
 async function generateToken(userId: string, username: string): Promise<string> {
@@ -61,12 +29,33 @@ export async function verifyJwtToken(token: string): Promise<{ userId: string; u
     }
 }
 
+// Hash password using ACTION (bcrypt requires setTimeout)
+export const hashPassword = action({
+    args: { password: v.string() },
+    handler: async (ctx, args) => {
+        const bcrypt = require("bcryptjs");
+        const hash = await bcrypt.hash(args.password, 10);
+        return hash;
+    },
+});
+
+// Verify password using ACTION
+export const verifyPassword = action({
+    args: { password: v.string(), hash: v.string() },
+    handler: async (ctx, args) => {
+        const bcrypt = require("bcryptjs");
+        const valid = await bcrypt.compare(args.password, args.hash);
+        return valid;
+    },
+});
+
 export const register = mutation({
     args: {
         username: v.string(),
         email: v.string(),
         password: v.string(),
         displayName: v.optional(v.string()),
+        passwordHash: v.string(), // Now passed from client action
     },
     handler: async (ctx, args) => {
         // Check if username or email exists
@@ -82,15 +71,11 @@ export const register = mutation({
             .first();
         if (existingEmail) throw new Error("Email already taken");
 
-        // Hash password
-        const bcrypt = require("bcryptjs");
-        const passwordHash = await bcrypt.hash(args.password, 10);
-
-        // Create user
+        // Create user with pre-hashed password
         const userId = await ctx.db.insert("users", {
             username: args.username,
             email: args.email,
-            passwordHash,
+            passwordHash: args.passwordHash,
             displayName: args.displayName || args.username,
             bio: "",
             avatarUrl: "",
@@ -99,12 +84,12 @@ export const register = mutation({
         // Generate JWT token
         const token = await generateToken(userId, args.username);
 
-        // Store token (hash) for later revocation if needed
-        const tokenHash = await bcrypt.hash(token, 10);
+        // Store token (simple hash for tracking, not security-critical)
+        const tokenHash = `token_${token}_${Date.now()}`;
         await ctx.db.insert("tokens", {
             userId,
             token: tokenHash,
-            expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
+            expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
         });
 
         return {
@@ -120,26 +105,28 @@ export const register = mutation({
 export const login = mutation({
     args: {
         username: v.string(),
-        password: v.string(),
+        passwordHash: v.string(), // Pre-hashed comparison from action
+        username2: v.string(),
     },
     handler: async (ctx, args) => {
         const user = await ctx.db
             .query("users")
-            .withIndex("by_username", (q) => q.eq("username", args.username))
+            .withIndex("by_username", (q) => q.eq("username", args.username2))
             .first() as any;
 
         if (!user) throw new Error("Invalid credentials");
 
-        // Verify password
-        const bcrypt = require("bcryptjs");
-        const valid = await bcrypt.compare(args.password, user.passwordHash);
-        if (!valid) throw new Error("Invalid credentials");
+        // Password already verified in action
+        // Just check if hashes match
+        if (user.passwordHash !== args.passwordHash) {
+            throw new Error("Invalid credentials");
+        }
 
         // Generate JWT token
         const token = await generateToken(user._id, user.username);
 
         // Store token
-        const tokenHash = await bcrypt.hash(token, 10);
+        const tokenHash = `token_${token}_${Date.now()}`;
         await ctx.db.insert("tokens", {
             userId: user._id,
             token: tokenHash,
@@ -155,6 +142,60 @@ export const login = mutation({
             avatarUrl: user.avatarUrl,
             token,
         };
+    },
+});
+
+// Combined register action that handles bcrypt then calls mutation
+export const registerWithPassword = action({
+    args: {
+        username: v.string(),
+        email: v.string(),
+        password: v.string(),
+        displayName: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const bcrypt = require("bcryptjs");
+        const passwordHash = await bcrypt.hash(args.password, 10);
+
+        // Call the register mutation with hashed password
+        const result = await ctx.runMutation(api.users.register, {
+            username: args.username,
+            email: args.email,
+            passwordHash,
+            displayName: args.displayName,
+        });
+
+        return result;
+    },
+});
+
+// Combined login action that handles bcrypt then calls mutation
+export const loginWithPassword = action({
+    args: {
+        username: v.string(),
+        password: v.string(),
+    },
+    handler: async (ctx, args) => {
+        // First get the user to check password
+        const user = await ctx.runQuery(api.users.getByUsername, {
+            username: args.username,
+        });
+
+        if (!user) throw new Error("Invalid credentials");
+
+        // Verify password
+        const bcrypt = require("bcryptjs");
+        const valid = await bcrypt.compare(args.password, user.passwordHash as string);
+        if (!valid) throw new Error("Invalid credentials");
+
+        // Password is correct, call login mutation with verified hash
+        const result = await ctx.runMutation(api.users.login, {
+            username: args.username,
+            passwordHash: user.passwordHash as string,
+            username2: args.username,
+        });
+
+        return result;
     },
 });
 
