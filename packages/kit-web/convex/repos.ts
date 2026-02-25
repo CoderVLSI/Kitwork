@@ -263,6 +263,19 @@ export const getCommits = query({
     },
 });
 
+export const listPublic = query({
+    args: {},
+    handler: async (ctx) => {
+        // Get all public repos (ordered by creation time, newest first)
+        const repos = await ctx.db
+            .query("repos")
+            .filter((q) => q.eq(q.field("isPublic"), true))
+            .order("desc")
+            .take(100);
+        return repos;
+    },
+});
+
 /**
  * Decode a stored git object: base64 → buffer → zlib inflate → skip header → text
  * Since Convex runs in a serverless environment, we use atob for base64
