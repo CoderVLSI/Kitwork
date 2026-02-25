@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
 import { SignJWT, jwtVerify } from "jose";
-import { api } from "./_generated/api";
 
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || "kitwork-secret-key-change-in-production"
@@ -50,13 +49,13 @@ export const verifyPassword = action({
     },
 });
 
+// Internal register mutation (called by action)
 export const register = mutation({
     args: {
         username: v.string(),
         email: v.string(),
-        password: v.string(),
+        passwordHash: v.string(),
         displayName: v.optional(v.string()),
-        passwordHash: v.string(), // Now passed from client action
     },
     handler: async (ctx, args) => {
         // Check if username or email exists
@@ -103,28 +102,20 @@ export const register = mutation({
     },
 });
 
+// Internal login mutation (called by action)
 export const login = mutation({
     args: {
         username: v.string(),
-        passwordHash: v.string(), // Pre-hashed comparison from action
-        username2: v.string(),
+        userId: v.id("users"),
+        token: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_username", (q) => q.eq("username", args.username2))
-            .first() as any;
+        const user = await ctx.db.get(args.userId) as any;
 
         if (!user) throw new Error("Invalid credentials");
 
-        // Password already verified in action
-        // Just check if hashes match
-        if (user.passwordHash !== args.passwordHash) {
-            throw new Error("Invalid credentials");
-        }
-
-        // Generate JWT token
-        const token = await generateToken(user._id, user.username);
+        // Generate JWT token if not provided
+        const token = args.token || await generateToken(user._id, user.username);
 
         // Store token
         const tokenHash = `token_${token}_${Date.now()}`;
@@ -159,7 +150,8 @@ export const registerWithPassword = action({
         const passwordHash = await bcrypt.hash(args.password, 10);
 
         // Call the register mutation with hashed password
-        const result = await ctx.runMutation(api.users.register, {
+        // Use string reference to avoid circular dependency
+        const result = await ctx.runMutation("users:register", {
             username: args.username,
             email: args.email,
             passwordHash,
@@ -178,7 +170,7 @@ export const loginWithPassword = action({
     },
     handler: async (ctx, args) => {
         // First get the user to check password
-        const user = await ctx.runQuery(api.users.getByUsername, {
+        const user = await ctx.runQuery("users:getByUsername", {
             username: args.username,
         });
 
@@ -189,11 +181,10 @@ export const loginWithPassword = action({
         const valid = await bcrypt.compare(args.password, user.passwordHash as string);
         if (!valid) throw new Error("Invalid credentials");
 
-        // Password is correct, call login mutation with verified hash
-        const result = await ctx.runMutation(api.users.login, {
+        // Password is correct, call login mutation
+        const result = await ctx.runMutation("users:login", {
             username: args.username,
-            passwordHash: user.passwordHash as string,
-            username2: args.username,
+            userId: user._id,
         });
 
         return result;
