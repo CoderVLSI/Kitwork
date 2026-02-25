@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query, action } from "./_generated/server";
 import { SignJWT, jwtVerify } from "jose";
+import { api } from "./_generated/api";
 
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || "kitwork-secret-key-change-in-production"
