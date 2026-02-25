@@ -6,6 +6,17 @@ const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || "kitwork-secret-key-change-in-production"
 );
 
+// Types for user documents
+type UserDoc = {
+    _id: any;
+    username: string;
+    email: string;
+    passwordHash: string;
+    displayName: string;
+    bio?: string;
+    avatarUrl?: string;
+};
+
 // Hash password using bcrypt (via action for Node.js environment)
 export const hashPassword = mutation({
     args: { password: v.string() },
@@ -115,13 +126,13 @@ export const login = mutation({
         const user = await ctx.db
             .query("users")
             .withIndex("by_username", (q) => q.eq("username", args.username))
-            .first();
+            .first() as any;
 
         if (!user) throw new Error("Invalid credentials");
 
         // Verify password
         const bcrypt = require("bcryptjs");
-        const valid = await bcrypt.compare(args.password, user.passwordHash as string);
+        const valid = await bcrypt.compare(args.password, user.passwordHash);
         if (!valid) throw new Error("Invalid credentials");
 
         // Generate JWT token
@@ -153,16 +164,20 @@ export const verifyToken = query({
         const result = await verifyJwtToken(args.token);
         if (!result) return null;
 
-        const user = await ctx.db.get(result.userId as any);
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", result.username))
+            .first() as any;
+
         if (!user) return null;
 
         return {
             id: user._id,
-            username: user.username as string,
-            email: user.email as string,
-            displayName: user.displayName as string,
-            bio: user.bio as string | undefined,
-            avatarUrl: user.avatarUrl as string | undefined,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            bio: user.bio,
+            avatarUrl: user.avatarUrl,
         };
     },
 });
@@ -214,11 +229,11 @@ export const me = query({
         if (!user) return null;
         return {
             id: user._id,
-            username: user.username as string,
-            email: user.email as string,
-            displayName: user.displayName as string,
-            bio: user.bio as string | undefined,
-            avatarUrl: user.avatarUrl as string | undefined,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            bio: user.bio,
+            avatarUrl: user.avatarUrl,
         };
     },
 });
