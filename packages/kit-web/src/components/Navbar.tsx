@@ -2,10 +2,47 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+interface User {
+    id: string;
+    username: string;
+    email: string;
+    displayName: string;
+}
 
 export default function Navbar() {
     const [mobileOpen, setMobileOpen] = useState(false);
+    const [user, setUser] = useState<User | null>(null);
+
+    useEffect(() => {
+        const checkAuth = () => {
+            const stored = localStorage.getItem("kit_user");
+            setUser(stored ? JSON.parse(stored) : null);
+        };
+
+        checkAuth();
+
+        // Listen for storage changes (for multi-tab sync)
+        const handleStorageChange = () => checkAuth();
+        window.addEventListener("storage", handleStorageChange);
+
+        // Custom event for login/logout
+        const handleAuthChange = () => checkAuth();
+        window.addEventListener("auth-change", handleAuthChange);
+
+        return () => {
+            window.removeEventListener("storage", handleStorageChange);
+            window.removeEventListener("auth-change", handleAuthChange);
+        };
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem("kit_user");
+        setUser(null);
+        window.dispatchEvent(new Event("auth-change"));
+        window.location.href = "/";
+    };
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 glass">
@@ -49,20 +86,53 @@ export default function Navbar() {
                         </Link>
                     </div>
 
-                    {/* Auth Buttons */}
+                    {/* Auth Buttons / User Menu */}
                     <div className="hidden md:flex items-center gap-3">
-                        <Link
-                            href="/login"
-                            className="text-sm text-[var(--kit-text-muted)] hover:text-white transition-colors px-4 py-2"
-                        >
-                            Sign in
-                        </Link>
-                        <Link
-                            href="/register"
-                            className="text-sm bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg transition-all hover:shadow-lg hover:shadow-purple-500/25"
-                        >
-                            Get Started
-                        </Link>
+                        {user ? (
+                            <>
+                                <Link
+                                    href="/dashboard"
+                                    className="text-sm text-[var(--kit-text-muted)] hover:text-white transition-colors"
+                                >
+                                    Dashboard
+                                </Link>
+                                <div className="flex items-center gap-2 pl-3 border-l border-[var(--kit-border)]">
+                                    <Link
+                                        href={`/${user.username}`}
+                                        className="flex items-center gap-2 text-sm text-white hover:text-orange-400 transition-colors"
+                                    >
+                                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
+                                            {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
+                                        </div>
+                                        <span className="font-medium">{user.displayName || user.username}</span>
+                                    </Link>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="text-xs text-[var(--kit-text-muted)] hover:text-red-400 transition-colors ml-1"
+                                        title="Sign out"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/login"
+                                    className="text-sm text-[var(--kit-text-muted)] hover:text-white transition-colors px-4 py-2"
+                                >
+                                    Sign in
+                                </Link>
+                                <Link
+                                    href="/register"
+                                    className="text-sm bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg transition-all hover:shadow-lg hover:shadow-orange-500/25"
+                                >
+                                    Get Started
+                                </Link>
+                            </>
+                        )}
                     </div>
 
                     {/* Mobile Menu Button */}
@@ -89,8 +159,24 @@ export default function Navbar() {
                         <Link href="/docs" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Docs</Link>
                         <Link href="/pricing" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Pricing</Link>
                         <hr className="border-[var(--kit-border)]" />
-                        <Link href="/login" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Sign in</Link>
-                        <Link href="/register" className="block text-sm bg-purple-600 text-white text-center px-4 py-2 rounded-lg">Get Started</Link>
+                        {user ? (
+                            <>
+                                <div className="flex items-center gap-2 py-2">
+                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
+                                        {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
+                                    </div>
+                                    <span className="text-sm text-white">{user.displayName || user.username}</span>
+                                </div>
+                                <Link href="/dashboard" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Dashboard</Link>
+                                <Link href={`/${user.username}`} className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Profile</Link>
+                                <button onClick={handleLogout} className="block w-full text-left text-sm text-[var(--kit-text-muted)] hover:text-red-400">Sign out</button>
+                            </>
+                        ) : (
+                            <>
+                                <Link href="/login" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Sign in</Link>
+                                <Link href="/register" className="block text-sm bg-orange-600 text-white text-center px-4 py-2 rounded-lg">Get Started</Link>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
