@@ -3,12 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const { getKitDir, resolveRef, readObject, walkHistory, readCommit, flattenTree } = require('kit-core');
+const { getKitDir, resolveRef, readObject, readCommit } = require('kit-core');
 
 /**
- * Push objects and refs to a remote Kitwork server.
- * Protocol: POST /api/repos/:user/:repo/push
- * Body: { branch, commitHash, objects: [{ hash, data (base64) }] }
+ * Push objects and refs to Kitwork (Convex HTTP endpoint).
+ * Parses the remote URL to extract owner/repo, then POSTs to Convex.
  */
 module.exports = function push(remoteName, branchName) {
     try {
@@ -29,11 +28,25 @@ module.exports = function push(remoteName, branchName) {
             process.exit(1);
         }
 
-        // Collect all objects to push (walk history + all trees + blobs)
+        // Parse owner/repo from remote URL
+        // Supports: https://kitwork.vercel.app/user/repo, user/repo, localhost:4000/user/repo
+        const urlParts = remoteUrl.replace(/\/$/, '').split('/').filter(Boolean);
+        const repoName = urlParts[urlParts.length - 1];
+        const ownerUsername = urlParts[urlParts.length - 2];
+
+        if (!repoName || !ownerUsername) {
+            console.error(chalk.red('✗'), 'Invalid remote URL — should be owner/repo');
+            process.exit(1);
+        }
+
+        // Read config for Convex URL
+        const convexUrl = config.server || 'https://colorful-ibis-753.convex.site';
+
+        // Collect all objects to push
         const objectHashes = new Set();
         collectObjects(commitHash, kitDir, objectHashes);
 
-        // Build payload
+        // Build objects array (base64-encoded RAW files — NOT compressed for Convex)
         const objects = [];
         for (const hash of objectHashes) {
             const objPath = path.join(kitDir, 'objects', hash.slice(0, 2), hash.slice(2));
@@ -41,16 +54,28 @@ module.exports = function push(remoteName, branchName) {
             objects.push({ hash, data });
         }
 
+        // Read commit info for denormalized storage
+        const commit = readCommit(commitHash, kitDir);
+        const commitInfo = {
+            message: commit.message,
+            author: commit.author,
+            timestamp: commit.timestamp,
+            treeHash: commit.tree,
+            parentHash: commit.parent || undefined,
+        };
+
         const payload = JSON.stringify({
+            ownerUsername,
+            repoName,
             branch: branchName,
             commitHash,
             objects,
+            commitInfo,
         });
 
-        const pushUrl = `${remoteUrl}/push`;
-        console.log(chalk.dim(`Pushing ${objects.length} objects to ${remoteUrl}...`));
+        const pushUrl = `${convexUrl}/api/push`;
+        console.log(chalk.dim(`Pushing ${objects.length} objects to ${ownerUsername}/${repoName}...`));
 
-        // Make HTTP request
         const urlObj = new URL(pushUrl);
         const transport = urlObj.protocol === 'https:' ? https : http;
 
@@ -71,6 +96,12 @@ module.exports = function push(remoteName, branchName) {
                 res.on('end', () => {
                     if (res.statusCode >= 200 && res.statusCode < 300) {
                         console.log(chalk.green('✓') + ` Pushed ${chalk.bold(branchName)} → ${remoteName}`);
+                        try {
+                            const result = JSON.parse(body);
+                            if (result.stored !== undefined) {
+                                console.log(chalk.dim(`  ${result.stored} new objects stored`));
+                            }
+                        } catch { }
                     } else {
                         console.error(chalk.red('✗'), `Push failed (${res.statusCode}): ${body}`);
                     }
@@ -91,19 +122,13 @@ module.exports = function push(remoteName, branchName) {
     }
 };
 
-/**
- * Recursively collect all object hashes reachable from a commit.
- */
 function collectObjects(commitHash, kitDir, visited) {
     if (visited.has(commitHash)) return;
     visited.add(commitHash);
 
     const commit = readCommit(commitHash, kitDir);
-
-    // Add tree objects
     collectTreeObjects(commit.tree, kitDir, visited);
 
-    // Walk parent
     if (commit.parent) {
         collectObjects(commit.parent, kitDir, visited);
     }

@@ -17,12 +17,19 @@ const remoteCmd = require('../commands/remote');
 const pushCmd = require('../commands/push');
 const pullCmd = require('../commands/pull');
 const cloneCmd = require('../commands/clone');
+const configCmd = require('../commands/config');
+const resetCmd = require('../commands/reset');
+const tagCmd = require('../commands/tag');
+const rmCmd = require('../commands/rm');
+const showCmd = require('../commands/show');
+const stashCmd = require('../commands/stash');
+const revertCmd = require('../commands/revert');
 
 // ─── CLI Setup ───
 program
     .name('kit')
     .description(chalk.bold.hex('#8B5CF6')('🧰 Kitwork') + ' — Your own Git')
-    .version('1.0.0');
+    .version('1.1.0');
 
 // ─── kit init ───
 program
@@ -41,7 +48,7 @@ program
 program
     .command('commit')
     .requiredOption('-m, --message <msg>', 'Commit message')
-    .option('-a, --author <name>', 'Author name', 'Kitwork User')
+    .option('-a, --author <name>', 'Author name')
     .description('Create a new commit from staged changes')
     .action(commitCmd);
 
@@ -119,9 +126,82 @@ program
 // ─── kit clone ───
 program
     .command('clone')
-    .argument('<url>', 'Repository URL to clone')
+    .argument('<url>', 'Repository URL (user/repo or full URL)')
     .argument('[directory]', 'Directory to clone into')
     .description('Clone a remote repository')
     .action(cloneCmd);
+
+// ─── kit config ───
+program
+    .command('config')
+    .argument('[key]', 'Config key (e.g. user.name, user.email)')
+    .argument('[value]', 'Value to set')
+    .description('Get or set config values')
+    .action(configCmd);
+
+// ─── kit reset ───
+program
+    .command('reset')
+    .argument('[target]', 'File to unstage or HEAD~N for soft reset')
+    .option('--hard', 'Reset working tree and index to HEAD')
+    .option('--soft', 'Move HEAD back (keep changes staged)')
+    .description('Unstage files or undo commits')
+    .action(resetCmd);
+
+// ─── kit tag ───
+const tagCommand = program
+    .command('tag')
+    .argument('[name]', 'Tag name')
+    .argument('[commit]', 'Commit hash to tag (defaults to HEAD)')
+    .option('-d, --delete', 'Delete a tag')
+    .description('List, create, or delete tags')
+    .action((name, commit, opts) => tagCmd.create(name, commit, opts));
+
+// ─── kit rm ───
+program
+    .command('rm')
+    .argument('<files...>', 'Files to remove from tracking')
+    .option('--cached', 'Remove from index only, keep file on disk')
+    .description('Remove files from tracking')
+    .action(rmCmd);
+
+// ─── kit show ───
+program
+    .command('show')
+    .argument('[commit]', 'Commit hash to show (defaults to HEAD)')
+    .description('Show commit details')
+    .action(showCmd);
+
+// ─── kit stash ───
+const stashCommand = program
+    .command('stash')
+    .description('Save and restore uncommitted changes');
+
+stashCommand
+    .command('save')
+    .description('Save current changes')
+    .action(stashCmd.save);
+
+stashCommand
+    .command('pop')
+    .description('Restore last stashed changes')
+    .action(stashCmd.pop);
+
+stashCommand
+    .command('list')
+    .description('List all stashes')
+    .action(stashCmd.list);
+
+stashCommand
+    .command('drop')
+    .description('Drop the latest stash')
+    .action(stashCmd.drop);
+
+// ─── kit revert ───
+program
+    .command('revert')
+    .argument('<commit>', 'Commit hash to revert')
+    .description('Create a new commit that undoes a previous commit')
+    .action(revertCmd);
 
 program.parse();

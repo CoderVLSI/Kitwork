@@ -3,16 +3,25 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const { initRepo, updateRef, checkoutTree, getKitDir } = require('kit-core');
+const { initRepo, updateRef, checkoutTree } = require('kit-core');
 
 /**
- * Clone a remote Kitwork repository.
- * Protocol: GET <url>/pull?branch=main
+ * Clone a remote Kitwork repository (Convex HTTP endpoint).
+ * Usage: kit clone user/repo [directory]
  */
 module.exports = function clone(url, directory) {
     try {
-        // Determine target directory
-        const repoName = url.split('/').filter(Boolean).pop() || 'repo';
+        // Parse owner/repo from URL
+        // Supports: user/repo, https://kitwork.vercel.app/user/repo
+        const urlParts = url.replace(/\/$/, '').split('/').filter(Boolean);
+        const repoName = urlParts[urlParts.length - 1];
+        const ownerUsername = urlParts[urlParts.length - 2];
+
+        if (!repoName || !ownerUsername) {
+            console.error(chalk.red('✗'), 'Usage: kit clone <user/repo> [directory]');
+            process.exit(1);
+        }
+
         const targetDir = path.resolve(directory || repoName);
 
         if (fs.existsSync(targetDir) && fs.readdirSync(targetDir).length > 0) {
@@ -26,15 +35,18 @@ module.exports = function clone(url, directory) {
         initRepo(targetDir);
         const kitDir = path.join(targetDir, '.kit');
 
-        // Save remote
+        // Save remote & server config
         const configPath = path.join(kitDir, 'config');
         const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
         config.remotes.origin = { url };
+        config.server = 'https://colorful-ibis-753.convex.site';
         fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-        console.log(chalk.dim(`Cloning from ${url}...`));
+        const convexUrl = config.server;
+        const pullUrl = `${convexUrl}/api/pull?owner=${ownerUsername}&repo=${repoName}&branch=main`;
 
-        const pullUrl = `${url}/pull?branch=main`;
+        console.log(chalk.dim(`Cloning ${ownerUsername}/${repoName}...`));
+
         const urlObj = new URL(pullUrl);
         const transport = urlObj.protocol === 'https:' ? https : http;
 
