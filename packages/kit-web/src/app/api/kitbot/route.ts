@@ -2,14 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
     try {
-        const { message, context } = await request.json();
+        const { message, context, apiKey: userApiKey } = await request.json();
 
-        // Check if Google API key is configured
-        const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+        // Use user's API key first, then fall back to environment variable
+        const apiKey = userApiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
         if (!apiKey) {
             return NextResponse.json(
                 {
-                    response: "KitBot requires a GOOGLE_API_KEY environment variable to work. Please add it to your .env.local file.",
+                    response: "KitBot requires a Google API key. Please add your API key in Settings to use KitBot.",
                 },
                 { status: 200 }
             );

@@ -53,6 +53,9 @@ export default function KitBot({ repoName, username, currentFile, fileContent, r
                 repoContext: repoContext || "",
             };
 
+            // Get user's API key from localStorage
+            const apiKey = localStorage.getItem("kit_google_api_key") || "";
+
             // Call KitBot API endpoint
             const response = await fetch("/api/kitbot", {
                 method: "POST",
@@ -60,6 +63,7 @@ export default function KitBot({ repoName, username, currentFile, fileContent, r
                 body: JSON.stringify({
                     message: userMessage,
                     context,
+                    apiKey,
                 }),
             });
 

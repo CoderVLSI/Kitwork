@@ -18,6 +18,7 @@ interface User {
 export default function SettingsPage() {
     const [user, setUser] = useState<User | null>(null);
     const [form, setForm] = useState({ displayName: "", bio: "", avatarUrl: "" });
+    const [googleApiKey, setGoogleApiKey] = useState("");
     const [message, setMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
@@ -36,6 +37,8 @@ export default function SettingsPage() {
             bio: parsed.bio || "",
             avatarUrl: parsed.avatarUrl || "",
         });
+        // Load Google API key from localStorage
+        setGoogleApiKey(localStorage.getItem("kit_google_api_key") || "");
     }, []);
 
     const handleSave = async () => {
@@ -55,6 +58,13 @@ export default function SettingsPage() {
             const updated = { ...user, ...form };
             localStorage.setItem("kit_user", JSON.stringify(updated));
             setUser(updated);
+
+            // Save Google API key
+            if (googleApiKey) {
+                localStorage.setItem("kit_google_api_key", googleApiKey);
+            } else {
+                localStorage.removeItem("kit_google_api_key");
+            }
 
             setMessage("Profile updated successfully!");
             setTimeout(() => setMessage(""), 3000);
@@ -178,6 +188,31 @@ export default function SettingsPage() {
                                 View Profile
                             </Link>
                         </div>
+                    </div>
+                </div>
+
+                {/* KitBot API Key */}
+                <div className="glass rounded-2xl p-6 mb-6">
+                    <h2 className="text-lg font-semibold text-white mb-2">KitBot 🐱‍🏗️</h2>
+                    <p className="text-sm text-[var(--kit-text-muted)] mb-4">
+                        Add your Google API key to enable KitBot AI assistant. Get your free API key from{" "}
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">
+                            Google AI Studio
+                        </a>
+                    </p>
+
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">Google API Key</label>
+                        <input
+                            type="password"
+                            value={googleApiKey}
+                            onChange={(e) => setGoogleApiKey(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500 transition-colors font-mono text-sm"
+                            placeholder="AIzaSy..."
+                        />
+                        <p className="text-xs text-[var(--kit-text-muted)] mt-2">
+                            Your API key is stored locally in your browser and never sent to our servers.
+                        </p>
                     </div>
                 </div>
 
