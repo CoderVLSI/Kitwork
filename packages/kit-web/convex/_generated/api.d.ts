@@ -9,9 +9,12 @@
  */
 
 import type * as activities from "../activities.js";
+import type * as crew from "../crew.js";
 import type * as gitOps from "../gitOps.js";
 import type * as http from "../http.js";
 import type * as repos from "../repos.js";
+import type * as sparks from "../sparks.js";
+import type * as threads from "../threads.js";
 import type * as users from "../users.js";
 
 import type {
@@ -22,9 +25,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   activities: typeof activities;
+  crew: typeof crew;
   gitOps: typeof gitOps;
   http: typeof http;
   repos: typeof repos;
+  sparks: typeof sparks;
+  threads: typeof threads;
   users: typeof users;
 }>;
 
