@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 export default function RegisterPage() {
@@ -11,7 +11,7 @@ export default function RegisterPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const registerMutation = useMutation(api.users.registerWithPassword);
+    const registerAction = useAction(api.auth.registerWithPassword);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -19,7 +19,7 @@ export default function RegisterPage() {
         setLoading(true);
 
         try {
-            const user = await registerMutation({
+            const user = await registerAction({
                 username: form.username,
                 email: form.email,
                 password: form.password,

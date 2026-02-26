@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 
 export default function LoginPage() {
@@ -12,7 +12,7 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const loginMutation = useMutation(api.users.loginWithPassword);
+    const loginAction = useAction(api.auth.loginWithPassword);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,7 +20,7 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            const user = await loginMutation({ username, password });
+            const user = await loginAction({ username, password });
             localStorage.setItem("kit_user", JSON.stringify(user));
             window.dispatchEvent(new Event("auth-change"));
             window.location.href = "/dashboard";

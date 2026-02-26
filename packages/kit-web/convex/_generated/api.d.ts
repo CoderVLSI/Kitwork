@@ -9,6 +9,7 @@
  */
 
 import type * as activities from "../activities.js";
+import type * as auth from "../auth.js";
 import type * as gitOps from "../gitOps.js";
 import type * as http from "../http.js";
 import type * as repos from "../repos.js";
@@ -22,6 +23,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   activities: typeof activities;
+  auth: typeof auth;
   gitOps: typeof gitOps;
   http: typeof http;
   repos: typeof repos;
