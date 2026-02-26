@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 
 const SPARK_MAP: Record<string, string> = {
     bolt: "⚡", fire: "🔥", rocket: "🚀", gem: "💎", target: "🎯",

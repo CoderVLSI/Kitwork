@@ -3,8 +3,9 @@ import { query } from "./_generated/server";
 
 // Global search - searches repos and users
 export const global = query({
-    args: { query: v.string() },
+    args: { query: v.optional(v.string()) },
     handler: async (ctx, args) => {
+        if (!args.query) return { repos: [], users: [] };
         const searchTerm = args.query.toLowerCase();
 
         // Search repos

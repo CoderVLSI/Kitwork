@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 
 interface User {
     id: string;

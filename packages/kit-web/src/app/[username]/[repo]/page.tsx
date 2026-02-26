@@ -3,10 +3,10 @@
 import { useState, use, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
-import Markdown from "../../../../components/Markdown";
-import KitBot from "../../../../components/KitBot";
+import { api } from "@convex/_generated/api";
+import { Id } from "@convex/_generated/dataModel";
+import Markdown from "@/components/Markdown";
+import KitBot from "@/components/KitBot";
 
 interface User { id: string; username: string; email: string; displayName: string; }
 
@@ -260,6 +260,7 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                 </div>
                             </div>
                         ) : (
+                            <>
                             <div className="glass rounded-xl overflow-hidden">
                                 {currentPath && (
                                     <div className="flex items-center gap-1 px-4 py-3 border-b border-[var(--kit-border)] text-sm">
@@ -311,6 +312,7 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                     <Markdown content={readme.content} />
                                 </div>
                             )}
+                            </>
                         )}
                     </>
                 )}
@@ -410,11 +412,10 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                 </div>
                             ))}
                         </div>
-                    </div>
                 )}
 
-                    </div>
                 </div>
+            </div>
 
                 {/* Sidebar */}
                 <aside className="hidden lg:block w-72 flex-shrink-0">

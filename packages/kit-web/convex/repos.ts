@@ -107,7 +107,7 @@ export const deleteRepo = mutation({
         const threads = await ctx.db.query("threads").withIndex("by_repo", (q) => q.eq("repoId", repo._id)).collect();
         for (const thread of threads) await ctx.db.delete(thread._id);
 
-        const patches = await ctx.db.query("patches").withIndex("by_repo", (q) => q.eq("sourceRepoId", repo._id)).collect();
+        const patches = await ctx.db.query("patches").withIndex("by_source", (q) => q.eq("sourceRepoId", repo._id)).collect();
         for (const patch of patches) await ctx.db.delete(patch._id);
 
         const branches = await ctx.db.query("branches").withIndex("by_repo_name", (q) => q.eq("repoId", repo._id)).collect();
@@ -116,7 +116,7 @@ export const deleteRepo = mutation({
         const commits = await ctx.db.query("commits").withIndex("by_repo_branch", (q) => q.eq("repoId", repo._id)).collect();
         for (const commit of commits) await ctx.db.delete(commit._id);
 
-        const objects = await ctx.db.query("objects").withIndex("by_repo", (q) => q.eq("repoId", repo._id)).collect();
+        const objects = await ctx.db.query("objects").withIndex("by_repo_hash", (q) => q.eq("repoId", repo._id)).collect();
         for (const obj of objects) await ctx.db.delete(obj._id);
 
         // Delete the repo
@@ -867,7 +867,7 @@ export const getStats = query({
             const treeObj = await ctx.db
                 .query("objects")
                 .withIndex("by_repo_hash", (q) =>
-                    q.eq("repoId", repo._id).eq("hash", treeHash)
+                    q.eq("repoId", repo!._id).eq("hash", treeHash)
                 )
                 .first();
             if (!treeObj) return;
