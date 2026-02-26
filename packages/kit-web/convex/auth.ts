@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 // Register with password (uses bcrypt in action)
 export const registerWithPassword = action({
@@ -15,8 +15,8 @@ export const registerWithPassword = action({
         const bcrypt = require("bcryptjs");
         const passwordHash = await bcrypt.hash(args.password, 10);
 
-        // Call the register mutation with hashed password
-        const result = await ctx.runMutation(api.users.register, {
+        // Call the internal register mutation with hashed password
+        const result = await ctx.runMutation(internal.users.register, {
             username: args.username,
             email: args.email,
             passwordHash,
@@ -35,7 +35,7 @@ export const loginWithPassword = action({
     },
     handler: async (ctx, args) => {
         // Get the user first
-        const user = await ctx.runQuery(api.users.getByUsername, {
+        const user = await ctx.runQuery(internal.users.getByUsernameInternal, {
             username: args.username,
         });
 
@@ -43,11 +43,11 @@ export const loginWithPassword = action({
 
         // Verify password with bcrypt
         const bcrypt = require("bcryptjs");
-        const valid = await bcrypt.compare(args.password, user.passwordHash as string);
+        const valid = await bcrypt.compare(args.password, (user as any).passwordHash);
         if (!valid) throw new Error("Invalid credentials");
 
-        // Call login mutation
-        const result = await ctx.runMutation(api.users.login, {
+        // Call internal login mutation
+        const result = await ctx.runMutation(internal.users.login, {
             userId: user._id,
         });
 

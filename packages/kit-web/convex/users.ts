@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { SignJWT, jwtVerify } from "jose";
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -29,7 +29,7 @@ export async function verifyJwtToken(token: string): Promise<{ userId: string; u
     }
 }
 
-export const register = mutation({
+export const register = internalMutation({
     args: {
         username: v.string(),
         email: v.string(),
@@ -81,7 +81,7 @@ export const register = mutation({
     },
 });
 
-export const login = mutation({
+export const login = internalMutation({
     args: {
         userId: v.id("users"),
     },
@@ -167,6 +167,17 @@ export const updateProfile = mutation({
 });
 
 export const getByUsername = query({
+    args: { username: v.string() },
+    handler: async (ctx, args) => {
+        return await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", args.username))
+            .first();
+    },
+});
+
+// Internal version that includes passwordHash for auth actions
+export const getByUsernameInternal = internalQuery({
     args: { username: v.string() },
     handler: async (ctx, args) => {
         return await ctx.db
