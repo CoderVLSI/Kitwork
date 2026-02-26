@@ -36,8 +36,8 @@ ${context.fileContent ? `The user is currently viewing a file. Use its content t
 
 ${context.repoContext ? `Repository context: ${context.repoContext}` : ""}`;
 
-        // Call Google Gemini API
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+        // Call Google Gemini API - using Gemini 3 Flash Preview
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
