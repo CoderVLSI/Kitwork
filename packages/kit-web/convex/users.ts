@@ -1,39 +1,69 @@
 import { v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery } from "./_generated/server";
-import { SignJWT, jwtVerify } from "jose";
+import { mutation, query } from "./_generated/server";
 
-const JWT_SECRET = new TextEncoder().encode(
-    process.env.JWT_SECRET || "kitwork-secret-key-change-in-production"
-);
-
-// Generate JWT token
-async function generateToken(userId: string, username: string): Promise<string> {
-    const token = await new SignJWT({ userId, username })
-        .setProtectedHeader({ alg: "HS256" })
-        .setIssuedAt()
-        .setExpirationTime("30d")
-        .sign(JWT_SECRET);
-    return token;
+/**
+ * Hash password using Web Crypto API (PBKDF2) — works everywhere, no external deps.
+ * Production quality: uses 100k iterations of PBKDF2-SHA256 with random salt.
+ */
+async function hashPassword(password: string): Promise<string> {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        "PBKDF2",
+        false,
+        ["deriveBits"]
+    );
+    const hash = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+        keyMaterial,
+        256
+    );
+    const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, "0")).join("");
+    const hashHex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return `pbkdf2:${saltHex}:${hashHex}`;
 }
 
-// Verify JWT token
-export async function verifyJwtToken(token: string): Promise<{ userId: string; username: string } | null> {
-    try {
-        const { payload } = await jwtVerify(token, JWT_SECRET);
-        return {
-            userId: payload.userId as string,
-            username: payload.username as string,
-        };
-    } catch {
-        return null;
-    }
+/**
+ * Verify password against stored hash.
+ */
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+    const [, saltHex, storedHashHex] = stored.split(":");
+    if (!saltHex || !storedHashHex) return false;
+
+    const salt = new Uint8Array(saltHex.match(/.{2}/g)!.map(b => parseInt(b, 16)));
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        "PBKDF2",
+        false,
+        ["deriveBits"]
+    );
+    const hash = await crypto.subtle.deriveBits(
+        { name: "PBKDF2", salt, iterations: 100000, hash: "SHA-256" },
+        keyMaterial,
+        256
+    );
+    const hashHex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+    return hashHex === storedHashHex;
 }
 
-export const register = internalMutation({
+/**
+ * Generate a simple auth token (random hex string).
+ */
+function generateToken(): string {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ─── Register ───
+export const register = mutation({
     args: {
         username: v.string(),
         email: v.string(),
-        passwordHash: v.string(),
+        password: v.string(),
         displayName: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
@@ -50,24 +80,24 @@ export const register = internalMutation({
             .first();
         if (existingEmail) throw new Error("Email already taken");
 
+        // Hash password with PBKDF2
+        const passwordHash = await hashPassword(args.password);
+
         // Create user
         const userId = await ctx.db.insert("users", {
             username: args.username,
             email: args.email,
-            passwordHash: args.passwordHash,
+            passwordHash,
             displayName: args.displayName || args.username,
             bio: "",
             avatarUrl: "",
         });
 
-        // Generate JWT token
-        const token = await generateToken(userId, args.username);
-
-        // Store token
-        const tokenHash = `token_${token}_${Date.now()}`;
+        // Generate token
+        const token = generateToken();
         await ctx.db.insert("tokens", {
             userId,
-            token: tokenHash,
+            token,
             expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
         });
 
@@ -81,22 +111,29 @@ export const register = internalMutation({
     },
 });
 
-export const login = internalMutation({
+// ─── Login ───
+export const login = mutation({
     args: {
-        userId: v.id("users"),
+        username: v.string(),
+        password: v.string(),
     },
     handler: async (ctx, args) => {
-        const user = await ctx.db.get(args.userId) as any;
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", args.username))
+            .first();
+
         if (!user) throw new Error("Invalid credentials");
 
-        // Generate JWT token
-        const token = await generateToken(user._id, user.username);
+        // Verify password
+        const valid = await verifyPassword(args.password, user.passwordHash);
+        if (!valid) throw new Error("Invalid credentials");
 
-        // Store token
-        const tokenHash = `token_${token}_${Date.now()}`;
+        // Generate token
+        const token = generateToken();
         await ctx.db.insert("tokens", {
             userId: user._id,
-            token: tokenHash,
+            token,
             expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
         });
 
@@ -112,17 +149,19 @@ export const login = internalMutation({
     },
 });
 
+// ─── Verify Token ───
 export const verifyToken = query({
     args: { token: v.string() },
     handler: async (ctx, args) => {
-        const result = await verifyJwtToken(args.token);
-        if (!result) return null;
+        const tokenRecord = await ctx.db
+            .query("tokens")
+            .withIndex("by_token", (q) => q.eq("token", args.token))
+            .first();
 
-        const user = await ctx.db
-            .query("users")
-            .withIndex("by_username", (q) => q.eq("username", result.username))
-            .first() as any;
+        if (!tokenRecord) return null;
+        if (tokenRecord.expiresAt < Math.floor(Date.now() / 1000)) return null;
 
+        const user = await ctx.db.get(tokenRecord.userId);
         if (!user) return null;
 
         return {
@@ -136,6 +175,7 @@ export const verifyToken = query({
     },
 });
 
+// ─── Update Profile ───
 export const updateProfile = mutation({
     args: {
         userId: v.id("users"),
@@ -147,7 +187,7 @@ export const updateProfile = mutation({
         const user = await ctx.db.get(args.userId);
         if (!user) throw new Error("User not found");
 
-        const updates: any = {};
+        const updates: Record<string, string> = {};
         if (args.displayName !== undefined) updates.displayName = args.displayName;
         if (args.bio !== undefined) updates.bio = args.bio;
         if (args.avatarUrl !== undefined) updates.avatarUrl = args.avatarUrl;
@@ -166,27 +206,27 @@ export const updateProfile = mutation({
     },
 });
 
+// ─── Get By Username ───
 export const getByUsername = query({
     args: { username: v.string() },
     handler: async (ctx, args) => {
-        return await ctx.db
+        const user = await ctx.db
             .query("users")
             .withIndex("by_username", (q) => q.eq("username", args.username))
             .first();
+        if (!user) return null;
+        return {
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            displayName: user.displayName,
+            bio: user.bio,
+            avatarUrl: user.avatarUrl,
+        };
     },
 });
 
-// Internal version that includes passwordHash for auth actions
-export const getByUsernameInternal = internalQuery({
-    args: { username: v.string() },
-    handler: async (ctx, args) => {
-        return await ctx.db
-            .query("users")
-            .withIndex("by_username", (q) => q.eq("username", args.username))
-            .first();
-    },
-});
-
+// ─── Get Current User ───
 export const me = query({
     args: { userId: v.id("users") },
     handler: async (ctx, args) => {
