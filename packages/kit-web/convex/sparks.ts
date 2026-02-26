@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+// Valid spark types (ASCII-safe, mapped to emoji on frontend)
+// bolt=⚡  fire=🔥  rocket=🚀  gem=💎  target=🎯
+const VALID_SPARKS = ["bolt", "fire", "rocket", "gem", "target"];
+
 // Toggle a spark reaction on a repo
 export const toggle = mutation({
     args: {
@@ -9,6 +13,9 @@ export const toggle = mutation({
         emoji: v.string(),
     },
     handler: async (ctx, args) => {
+        if (!VALID_SPARKS.includes(args.emoji)) {
+            throw new Error("Invalid spark type");
+        }
         const existing = await ctx.db
             .query("sparks")
             .withIndex("by_user_repo", (q) =>

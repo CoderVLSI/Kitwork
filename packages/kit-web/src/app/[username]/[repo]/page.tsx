@@ -42,7 +42,11 @@ function getFileIcon(filename: string): string {
     return iconMap[ext] || "📄";
 }
 
-const SPARK_EMOJIS = ["⚡", "🔥", "🚀", "💎", "🎯"];
+// Spark IDs (ASCII-safe for Convex) → display emoji
+const SPARK_MAP: Record<string, string> = {
+    bolt: "⚡", fire: "🔥", rocket: "🚀", gem: "💎", target: "🎯",
+};
+const SPARK_IDS = Object.keys(SPARK_MAP);
 
 export default function RepoPage({ params }: { params: Promise<{ username: string; repo: string }> }) {
     const rawParams = use(params);
@@ -272,18 +276,18 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                     onClick={() => user ? setShowSparkPicker(!showSparkPicker) : alert("Sign in to spark!")}
                                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${userSpark ? "bg-orange-500/20 border border-orange-500/40 text-orange-300" : "glass text-[var(--kit-text-muted)] hover:text-white"}`}
                                 >
-                                    {userSpark ? userSpark.emoji : "⚡"}
+                                    {userSpark ? SPARK_MAP[userSpark.emoji] || "⚡" : "⚡"}
                                     <span>{sparkData?.total || 0}</span>
                                 </button>
                                 {showSparkPicker && (
                                     <div className="absolute top-full right-0 mt-2 glass rounded-xl p-2 flex gap-1 z-50 shadow-xl shadow-black/50">
-                                        {SPARK_EMOJIS.map(emoji => (
+                                        {SPARK_IDS.map(id => (
                                             <button
-                                                key={emoji}
-                                                onClick={() => handleSpark(emoji)}
-                                                className={`w-9 h-9 rounded-lg text-lg hover:bg-orange-500/20 transition-all flex items-center justify-center ${userSpark?.emoji === emoji ? "bg-orange-500/30 ring-1 ring-orange-400" : ""}`}
+                                                key={id}
+                                                onClick={() => handleSpark(id)}
+                                                className={`w-9 h-9 rounded-lg text-lg hover:bg-orange-500/20 transition-all flex items-center justify-center ${userSpark?.emoji === id ? "bg-orange-500/30 ring-1 ring-orange-400" : ""}`}
                                             >
-                                                {emoji}
+                                                {SPARK_MAP[id]}
                                             </button>
                                         ))}
                                     </div>
@@ -304,8 +308,8 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                     {/* Spark breakdown */}
                     {sparkData && sparkData.total > 0 && (
                         <div className="flex items-center gap-2 mt-2">
-                            {Object.entries(sparkData.counts).map(([emoji, count]) => (
-                                <span key={emoji} className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-[var(--kit-text-muted)]">{emoji} {count}</span>
+                            {Object.entries(sparkData.counts).map(([id, count]) => (
+                                <span key={id} className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-[var(--kit-text-muted)]">{SPARK_MAP[id] || id} {count}</span>
                             ))}
                         </div>
                     )}
