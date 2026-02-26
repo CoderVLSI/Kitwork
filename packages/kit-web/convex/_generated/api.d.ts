@@ -14,6 +14,7 @@ import type * as gitOps from "../gitOps.js";
 import type * as http from "../http.js";
 import type * as patches from "../patches.js";
 import type * as repos from "../repos.js";
+import type * as search from "../search.js";
 import type * as sparks from "../sparks.js";
 import type * as threads from "../threads.js";
 import type * as users from "../users.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   patches: typeof patches;
   repos: typeof repos;
+  search: typeof search;
   sparks: typeof sparks;
   threads: typeof threads;
   users: typeof users;

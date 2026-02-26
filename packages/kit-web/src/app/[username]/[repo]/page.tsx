@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
+import Markdown from "../../../../components/Markdown";
+import KitBot from "../../../../components/KitBot";
 
 interface User { id: string; username: string; email: string; displayName: string; }
 
@@ -69,6 +71,9 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
     const commits = useQuery(api.repos.getCommits, { ownerUsername: username, repoName, branch: "main" });
     const tree = useQuery(api.repos.getTree, { ownerUsername: username, repoName, branch: repoInfo?.defaultBranch || "main", path: currentPath || undefined });
     const fileData = useQuery(api.repos.getBlob, viewingFile ? { ownerUsername: username, repoName, branch: repoInfo?.defaultBranch || "main", path: viewingFile } : "skip");
+    const readme = useQuery(api.repos.getREADME, { ownerUsername: username, repoName, branch: repoInfo?.defaultBranch || "main" });
+    const repoStats = useQuery(api.repos.getStats, { ownerUsername: username, repoName });
+    const fileCommits = useQuery(api.repos.getFileCommits, { ownerUsername: username, repoName, branch: repoInfo?.defaultBranch || "main" });
 
     const sparkData = useQuery(api.sparks.getByRepo, repoInfo ? { repoId: repoInfo._id } : "skip");
     const userSpark = useQuery(api.sparks.getUserSpark, user && repoInfo ? { userId: user.id as Id<"users">, repoId: repoInfo._id } : "skip");
@@ -154,7 +159,7 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
 
     return (
         <div className="min-h-screen pt-20 px-4">
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <div className="mb-6">
                     <div className="flex items-center justify-between">
@@ -189,10 +194,16 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                 </button>
                             )}
                             {isOwner && (
-                                <button onClick={openFileModal} className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all flex items-center gap-1.5">
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                    Add file
-                                </button>
+                                <>
+                                    <Link href={`/${username}/${repoName}/settings`} className="px-3 py-1.5 rounded-lg glass text-[var(--kit-text-muted)] hover:text-white text-sm font-medium transition-all flex items-center gap-1.5">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                        Settings
+                                    </Link>
+                                    <button onClick={openFileModal} className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all flex items-center gap-1.5">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                                        Add file
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -207,8 +218,11 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                     )}
                 </div>
 
-                {/* Clone */}
-                <div className="glass rounded-xl p-3 mb-6 flex items-center gap-3">
+                <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Main Content */}
+                    <div className="flex-1 min-w-0">
+                        {/* Clone */}
+                        <div className="glass rounded-xl p-3 mb-6 flex items-center gap-3">
                     <span className="text-xs text-[var(--kit-text-muted)]">Clone:</span>
                     <code className="text-xs code-font text-orange-300 flex-1">kit clone {username}/{repoName}</code>
                 </div>
@@ -268,15 +282,35 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                         {isOwner && !currentPath && <button onClick={openFileModal} className="mt-4 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">+ Add your first file</button>}
                                     </div>
                                 ) : (
-                                    [...tree.entries].sort((a, b) => { if (a.type === "tree" && b.type !== "tree") return -1; if (a.type !== "tree" && b.type === "tree") return 1; return a.name.localeCompare(b.name); }).map(entry => (
-                                        <button key={entry.name} onClick={() => handleEntryClick(entry)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--kit-surface-2)] transition-colors border-b border-[var(--kit-border)] last:border-b-0">
-                                            <span>{entry.type === "tree" ? "📁" : getFileIcon(entry.name)}</span>
-                                            <span className={entry.type === "tree" ? "text-orange-400 font-medium" : "text-white"}>{entry.name}</span>
-                                            <span className="ml-auto text-xs text-[var(--kit-text-muted)]">{entry.type === "blob" ? detectLanguage(entry.name) : ""}</span>
-                                        </button>
-                                    ))
+                                    [...tree.entries].sort((a, b) => { if (a.type === "tree" && b.type !== "tree") return -1; if (a.type !== "tree" && b.type === "tree") return 1; return a.name.localeCompare(b.name); }).map(entry => {
+                                        const filePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+                                        const lastCommit = entry.type === "blob" && fileCommits?.[filePath];
+                                        return (
+                                            <button key={entry.name} onClick={() => handleEntryClick(entry)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--kit-surface-2)] transition-colors border-b border-[var(--kit-border)] last:border-b-0">
+                                                <span>{entry.type === "tree" ? "📁" : getFileIcon(entry.name)}</span>
+                                                <span className={entry.type === "tree" ? "text-orange-400 font-medium" : "text-white"}>{entry.name}</span>
+                                                <span className="ml-auto text-xs text-[var(--kit-text-muted)]">{entry.type === "blob" ? detectLanguage(entry.name) : ""}</span>
+                                                {lastCommit && (
+                                                    <div className="hidden sm:flex items-center gap-2 text-xs text-[var(--kit-text-muted)] ml-4">
+                                                        <span className="truncate max-w-[150px]">{lastCommit.message}</span>
+                                                        <span>{formatTimeAgo(lastCommit.timestamp * 1000)}</span>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })
                                 )}
                             </div>
+                            {/* README display - only at root level when not viewing a file */}
+                            {!viewingFile && !currentPath && readme && readme.content && (
+                                <div className="glass rounded-xl p-6 mt-6">
+                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--kit-border)]">
+                                        <span className="text-lg">📖</span>
+                                        <h3 className="text-sm font-semibold text-white">README.md</h3>
+                                    </div>
+                                    <Markdown content={readme.content} />
+                                </div>
+                            )}
                         )}
                     </>
                 )}
@@ -375,8 +409,94 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                     </div>
                                 </div>
                             ))}
+                        </div>
                     </div>
                 )}
+
+                    </div>
+                </div>
+
+                {/* Sidebar */}
+                <aside className="hidden lg:block w-72 flex-shrink-0">
+                    <div className="sticky top-24 space-y-4">
+                        {/* About */}
+                        <div className="glass rounded-xl p-4">
+                            <h3 className="text-sm font-semibold text-white mb-3">About</h3>
+                            {repoInfo.description && <p className="text-sm text-[var(--kit-text-muted)] mb-3">{repoInfo.description}</p>}
+                            <div className="flex items-center gap-4 text-xs text-[var(--kit-text-muted)]">
+                                {repoInfo.isPublic && <span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" /></svg> Public</span>}
+                                <span className="flex items-center gap-1"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> {repoStats?.contributors || 0} contributors</span>
+                            </div>
+                        </div>
+
+                        {/* Stats */}
+                        {repoStats && (
+                            <>
+                                {/* Languages */}
+                                {repoStats.languages.length > 0 && (
+                                    <div className="glass rounded-xl p-4">
+                                        <h3 className="text-sm font-semibold text-white mb-3">Languages</h3>
+                                        <div className="flex h-2 rounded-full overflow-hidden mb-2">
+                                            {repoStats.languages.slice(0, 6).map((lang, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="h-full"
+                                                    style={{
+                                                        backgroundColor: lang.color,
+                                                        width: `${lang.percentage}%`,
+                                                    }}
+                                                    title={`${lang.name} (${lang.percentage}%)`}
+                                                />
+                                            ))}
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            {repoStats.languages.slice(0, 5).map((lang) => (
+                                                <div key={lang.name} className="flex items-center gap-2 text-xs">
+                                                    <span
+                                                        className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                                        style={{ backgroundColor: lang.color }}
+                                                    />
+                                                    <span className="text-[var(--kit-text-muted)] flex-1">{lang.name}</span>
+                                                    <span className="text-white">{lang.percentage}%</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Latest Commit */}
+                                {repoStats.latestCommit && (
+                                    <div className="glass rounded-xl p-4">
+                                        <h3 className="text-sm font-semibold text-white mb-3">Latest Commit</h3>
+                                        <div className="text-xs">
+                                            <p className="text-white font-medium mb-1">{repoStats.latestCommit.message}</p>
+                                            <div className="flex items-center gap-2 text-[var(--kit-text-muted)]">
+                                                <span>{repoStats.latestCommit.author}</span>
+                                                <span>•</span>
+                                                <span>{formatTimeAgo(repoStats.latestCommit.timestamp * 1000)}</span>
+                                            </div>
+                                            <code className="mt-2 block text-orange-400 code-font text-[10px]">{repoStats.latestCommit.hash}</code>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Quick Stats */}
+                                <div className="glass rounded-xl p-4">
+                                    <div className="grid grid-cols-2 gap-3 text-center">
+                                        <div>
+                                            <div className="text-lg font-bold text-white">{repoStats.commits}</div>
+                                            <div className="text-xs text-[var(--kit-text-muted)]">Commits</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-lg font-bold text-white">{repoStats.fileCount}</div>
+                                            <div className="text-xs text-[var(--kit-text-muted)]">Files</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </aside>
             </div>
 
             {/* File Modal */}
@@ -468,6 +588,15 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                     </div>
                 </div>
             )}
+
+            {/* KitBot AI Assistant */}
+            <KitBot
+                repoName={repoName}
+                username={username}
+                currentFile={viewingFile}
+                fileContent={fileData?.content}
+                repoContext={repoInfo?.description}
+            />
         </div>
     );
 }

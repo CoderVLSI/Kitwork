@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
 
 interface User {
     id: string;
@@ -14,6 +16,12 @@ interface User {
 export default function Navbar() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [user, setUser] = useState<User | null>(null);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const searchInputRef = useRef<HTMLInputElement>(null);
+
+    // Search queries
+    const searchResults = useQuery(api.search.global, { query: searchQuery.length >= 2 ? searchQuery : undefined });
 
     useEffect(() => {
         const checkAuth = () => {
@@ -23,19 +31,33 @@ export default function Navbar() {
 
         checkAuth();
 
-        // Listen for storage changes (for multi-tab sync)
         const handleStorageChange = () => checkAuth();
         window.addEventListener("storage", handleStorageChange);
-
-        // Custom event for login/logout
         const handleAuthChange = () => checkAuth();
         window.addEventListener("auth-change", handleAuthChange);
+
+        // Keyboard shortcut: "/" to focus search
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "/" &&
+!['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)
+) {
+                e.preventDefault();
+                searchInputRef.current?.focus();
+            }
+            // Close search on Escape
+            if (e.key === "Escape" && searchOpen) {
+                setSearchOpen(false);
+                setSearchQuery("");
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
 
         return () => {
             window.removeEventListener("storage", handleStorageChange);
             window.removeEventListener("auth-change", handleAuthChange);
+            window.removeEventListener("keydown", handleKeyDown);
         };
-    }, []);
+    }, [searchOpen]);
 
     const handleLogout = () => {
         localStorage.removeItem("kit_user");
@@ -64,8 +86,96 @@ export default function Navbar() {
                         </span>
                     </Link>
 
+                    {/* Search Bar - Desktop */}
+                    <div className="hidden md:block flex-1 max-w-md mx-8 relative">
+                        <div className="relative">
+                            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--kit-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onFocus={() => setSearchOpen(true)}
+                                onBlur={() => setTimeout(() => setSearchOpen(false), 200)}
+                                placeholder="Search /"
+                                className="w-full pl-10 pr-4 py-2 rounded-lg bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/50 transition-all text-sm"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => {
+                                        setSearchQuery("");
+                                        searchInputRef.current?.focus();
+                                    }}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--kit-text-muted)] hover:text-white p-1"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Search Dropdown */}
+                        {searchOpen && searchQuery.length >= 2 && (
+                            <div className="absolute top-full left-0 right-0 mt-2 glass rounded-xl border border-[var(--kit-border)] overflow-hidden shadow-xl">
+                                {searchResults === undefined ? (
+                                    <div className="p-4 text-sm text-[var(--kit-text-muted)] text-center">Searching...</div>
+                                ) : searchResults.repos.length === 0 && searchResults.users.length === 0 ? (
+                                    <div className="p-8 text-center">
+                                        <p className="text-sm text-[var(--kit-text-muted)]">No results found</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {searchResults.repos.length > 0 && (
+                                            <div className="p-2">
+                                                <div className="text-xs text-[var(--kit-text-muted)] px-3 py-1 uppercase tracking-wider">Repositories</div>
+                                                {searchResults.repos.slice(0, 5).map((repo: any) => (
+                                                    <Link
+                                                        key={repo._id}
+                                                        href={`/${repo.ownerUsername}/${repo.name}`}
+                                                        className="block px-3 py-2 rounded-lg hover:bg-[var(--kit-surface-2)] transition-colors"
+                                                        onClick={() => setSearchOpen(false)}
+                                                    >
+                                                        <div className="flex items-center gap-2 text-sm">
+                                                            <span className="text-orange-400">{repo.ownerUsername}</span>
+                                                            <span className="text-[var(--kit-text-muted)]">/</span>
+                                                            <span className="text-white font-medium">{repo.name}</span>
+                                                        </div>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {searchResults.users.length > 0 && (
+                                            <div className="p-2 border-t border-[var(--kit-border)]">
+                                                <div className="text-xs text-[var(--kit-text-muted)] px-3 py-1 uppercase tracking-wider">Users</div>
+                                                {searchResults.users.slice(0, 5).map((u: any) => (
+                                                    <Link
+                                                        key={u._id}
+                                                        href={`/${u.username}`}
+                                                        className="block px-3 py-2 rounded-lg hover:bg-[var(--kit-surface-2)] transition-colors"
+                                                        onClick={() => setSearchOpen(false)}
+                                                    >
+                                                        <div className="flex items-center gap-2 text-sm">
+                                                            <div className="w-5 h-5 rounded bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold">
+                                                                {u.displayName?.[0]?.toUpperCase() || u.username[0].toUpperCase()}
+                                                            </div>
+                                                            <span className="text-white">{u.displayName || u.username}</span>
+                                                            <span className="text-[var(--kit-text-muted)]">@{u.username}</span>
+                                                        </div>
+                                                    </Link>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Desktop Nav */}
-                    <div className="hidden md:flex items-center gap-6">
+                    <div className="hidden md:flex items-center gap-4">
                         <Link
                             href="/explore"
                             className="text-sm text-[var(--kit-text-muted)] hover:text-white transition-colors"
@@ -80,7 +190,7 @@ export default function Navbar() {
                         </Link>
                         <Link
                             href="/pricing"
-                            className="text-sm text-[var(--kit-text-muted)] hover:text-white transition-colors"
+                            className="text-sm text-[var(--var(--kit-text-muted)] hover:text-white transition-colors"
                         >
                             Pricing
                         </Link>
@@ -161,6 +271,20 @@ export default function Navbar() {
             {mobileOpen && (
                 <div className="md:hidden glass border-t border-[var(--kit-border)]">
                     <div className="px-4 py-4 space-y-3">
+                        {/* Mobile Search */}
+                        <div className="relative">
+                            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--kit-text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search..."
+                                className="w-full pl-10 pr-4 py-2 rounded-lg bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500 transition-all text-sm"
+                            />
+                        </div>
+
                         <Link href="/explore" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Explore</Link>
                         <Link href="/docs" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Docs</Link>
                         <Link href="/pricing" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Pricing</Link>

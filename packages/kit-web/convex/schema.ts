@@ -65,6 +65,7 @@ export default defineSchema({
         message: v.string(),
         timestamp: v.number(),
         branch: v.string(),
+        modifiedFiles: v.optional(v.array(v.string())), // Track which files were modified in this commit
     })
         .index("by_repo_branch", ["repoId", "branch"])
         .index("by_hash", ["repoId", "hash"]),
