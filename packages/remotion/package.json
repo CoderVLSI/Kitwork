@@ -3,9 +3,11 @@
     "version": "1.0.0",
     "description": "Kitwork marketing videos",
     "scripts": {
+        "dev": "remotion studio",
         "start": "remotion studio",
         "build": "remotion render MarketingVideo out/video.mp4",
-        "preview": "remotion preview"
+        "preview": "remotion preview",
+        "build:still": "remotion render MarketingVideo out/frame.png --sequence --frames 0"
     },
     "dependencies": {
         "@remotion/cli": "^4.0.276",
