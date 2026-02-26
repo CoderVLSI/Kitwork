@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 
 interface KitBotProps {
     repoName: string;
@@ -127,7 +128,7 @@ ${parsed.stats ? `Statistics:
                     onClick={() => setIsOpen(true)}
                     className="fixed bottom-6 right-6 z-40 w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 via-blue-500 to-orange-500 text-white shadow-lg shadow-blue-500/30 hover:shadow-orange-500/50 hover:scale-110 transition-all flex items-center justify-center group border-2 border-white/20 animate-pulse-slow"
                 >
-                    <div className="text-3xl group-hover:animate-bounce">🐱‍🏗️</div>
+                    <Image src="/kitbot-icon.png" alt="KitBot" width={32} height={32} className="group-hover:animate-bounce" />
                     <span className="absolute -top-1 -right-1 flex h-4 w-4">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500 border-2 border-[#0a0a0f]"></span>
@@ -142,8 +143,8 @@ ${parsed.stats ? `Statistics:
                     {/* Header with mascot theme */}
                     <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--kit-border)] bg-gradient-to-r from-blue-500/30 via-orange-500/20 to-blue-500/30">
                         <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-orange-500 flex items-center justify-center text-2xl border-2 border-white/30 shadow-lg animate-pulse-slow">
-                                🐱‍🏗️
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-orange-500 flex items-center justify-center border-2 border-white/30 shadow-lg animate-pulse-slow overflow-hidden">
+                                <Image src="/kitbot-icon.png" alt="KitBot" width={32} height={32} />
                             </div>
                             <div>
                                 <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
@@ -187,7 +188,7 @@ ${parsed.stats ? `Statistics:
                                 >
                                     {msg.role === "assistant" && (
                                         <div className="flex items-center gap-1.5 mb-1.5">
-                                            <span className="text-xs">🐱‍🏗️</span>
+                                            <Image src="/kitbot-icon.png" alt="KitBot" width={14} height={14} />
                                             <span className="text-xs text-blue-400 font-semibold">KitBot</span>
                                         </div>
                                     )}
@@ -199,7 +200,7 @@ ${parsed.stats ? `Statistics:
                             <div className="flex justify-start">
                                 <div className="bg-gradient-to-br from-blue-500/20 to-blue-600/10 border border-blue-400/30 rounded-2xl px-4 py-3 shadow-lg">
                                     <div className="flex gap-1 items-center">
-                                        <span className="text-xs mr-2">🐱‍🏗️</span>
+                                        <Image src="/kitbot-icon.png" alt="KitBot" width={14} height={14} className="mr-2" />
                                         <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
                                         <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "100ms" }}></span>
                                         <span className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: "200ms" }}></span>
@@ -215,7 +216,7 @@ ${parsed.stats ? `Statistics:
                     {messages.length <= 1 && (
                         <div className="px-4 py-3 border-t border-[var(--kit-border)] bg-gradient-to-r from-blue-500/10 to-orange-500/10">
                             <p className="text-xs text-[var(--kit-text-muted)] mb-2 flex items-center gap-1.5">
-                                <span>🐱‍🏗️</span> Suggested questions:
+                                <Image src="/kitbot-icon.png" alt="KitBot" width={14} height={14} /> Suggested questions:
                             </p>
                             <div className="flex flex-wrap gap-1.5">
                                 {suggestedQuestions.map((q) => (
