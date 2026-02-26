@@ -46,11 +46,35 @@ export default function KitBot({ repoName, username, currentFile, fileContent, r
 
         try {
             // Build context from current file/repo
+            let repoInfo = "";
+            if (repoContext) {
+                try {
+                    const parsed = JSON.parse(repoContext);
+                    repoInfo = `
+
+Repository Information:
+- Description: ${parsed.description || "No description"}
+- Default Branch: ${parsed.defaultBranch || "main"}
+- Visibility: ${parsed.isPublic ? "Public" : "Private"}
+
+Files in this repository (${parsed.files?.length || 0} total):
+${parsed.files?.map((f: any) => `  - ${f.name} (${f.type}${f.language ? ` - ${f.language}` : ""})`).join("\n") || "  No files"}
+
+${parsed.stats ? `Statistics:
+- Languages: ${parsed.stats.languages?.map((l: any) => l.name).join(", ") || "None detected"}
+- Total Files: ${parsed.stats.fileCount || 0}
+- Total Commits: ${parsed.stats.commitCount || 0}
+- Contributors: ${parsed.stats.contributors || 0}` : ""}`;
+                } catch {
+                    repoInfo = repoContext;
+                }
+            }
+
             const context = {
                 repo: `${username}/${repoName}`,
                 currentFile: currentFile || "none",
-                fileContent: currentFile && fileContent ? `\nCurrent file content:\n\`\`\`\n${fileContent.slice(0, 3000)}${fileContent.length > 3000 ? "... (truncated)" : ""}\n\`\`\`` : "",
-                repoContext: repoContext || "",
+                fileContent: currentFile && fileContent ? `\n\nCurrent file content:\n\`\`\`\n${fileContent.slice(0, 3000)}${fileContent.length > 3000 ? "... (truncated)" : ""}\n\`\`\`` : "",
+                repoInfo,
             };
 
             // Get user's API key from localStorage

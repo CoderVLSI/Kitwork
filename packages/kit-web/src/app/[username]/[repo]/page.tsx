@@ -596,7 +596,24 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                 username={username}
                 currentFile={viewingFile}
                 fileContent={fileData?.content}
-                repoContext={repoInfo?.description}
+                repoContext={
+                    repoInfo && tree ? JSON.stringify({
+                        description: repoInfo.description,
+                        defaultBranch: repoInfo.defaultBranch,
+                        isPublic: repoInfo.isPublic,
+                        files: tree.entries?.map(e => ({
+                            name: e.name,
+                            type: e.type,
+                            language: e.type === 'blob' ? detectLanguage(e.name) : null
+                        })) || [],
+                        stats: repoStats ? {
+                            languages: repoStats.languages,
+                            fileCount: repoStats.fileCount,
+                            commitCount: repoStats.commits,
+                            contributors: repoStats.contributors
+                        } : null
+                    }) : repoInfo?.description
+                }
             />
         </div>
     );
