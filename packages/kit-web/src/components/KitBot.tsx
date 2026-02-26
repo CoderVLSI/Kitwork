@@ -20,7 +20,7 @@ export default function KitBot({ repoName, username, currentFile, fileContent, r
     const [messages, setMessages] = useState<Message[]>([
         {
             role: "assistant",
-            content: "Hi! I'm KitBot 🐱‍🏗️! I can help you understand your code, explain functions, find bugs, or answer questions about this repository. What would you like to build today?",
+            content: "Hi! I'm KitBot 🐱‍🏗️! Powered by Google Gemini 2.0 Flash, I can help you understand your code, explain functions, find bugs, or answer questions about this repository. What would you like to build today?",
         },
     ]);
     const [input, setInput] = useState("");

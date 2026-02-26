@@ -4,19 +4,19 @@ export async function POST(request: NextRequest) {
     try {
         const { message, context } = await request.json();
 
-        // Check if Claude API key is configured
-        const apiKey = process.env.ANTHROPIC_API_KEY;
+        // Check if Google API key is configured
+        const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
         if (!apiKey) {
             return NextResponse.json(
                 {
-                    response: "KitBot requires an ANTHROPIC_API_KEY environment variable to work. Please add it to your .env.local file.",
+                    response: "KitBot requires a GOOGLE_API_KEY environment variable to work. Please add it to your .env.local file.",
                 },
                 { status: 200 }
             );
         }
 
-        // Build the system prompt with context
-        const systemPrompt = `You are KitBot, a friendly AI coding assistant for Kitwork (a GitHub-like code hosting platform).
+        // Build the system instruction with context
+        const systemInstruction = `You are KitBot, a friendly AI coding assistant for Kitwork (a GitHub-like code hosting platform) with a construction cat mascot theme 🐱‍🏗️.
 
 Current repository: ${context.repo}
 Current file: ${context.currentFile}
@@ -29,37 +29,37 @@ Guidelines:
 - Explain technical concepts clearly
 - If you don't know something, say so
 - Format code with markdown
-- Be friendly and encouraging
+- Be friendly and encouraging with a playful construction theme
+- Use occasional cat/construction themed language (let's build this, nail down the bug, etc.)
 
-${context.fileContent ? `The user is currently viewing a file. Use its content to answer their questions.` : ""}
+${context.fileContent ? `The user is currently viewing a file. Use its content to answer their questions.\n\nCurrent file content:\n\`\`\`\n${context.fileContent.slice(0, 3000)}${context.fileContent.length > 3000 ? "... (truncated)" : ""}\n\`\`\`` : ""}
 
 ${context.repoContext ? `Repository context: ${context.repoContext}` : ""}`;
 
-        // Call Claude API
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
+        // Call Google Gemini API
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-api-key": apiKey,
-                "anthropic-version": "2023-06-01",
-                "anthropic-dangerous-direct-browser-access": "true",
             },
             body: JSON.stringify({
-                model: "claude-3-5-haiku-20241022",
-                max_tokens: 2000,
-                system: systemPrompt,
-                messages: [
+                contents: [
                     {
-                        role: "user",
-                        content: message,
-                    },
+                        parts: [
+                            { text: `${systemInstruction}\n\nUser: ${message}` }
+                        ]
+                    }
                 ],
+                generationConfig: {
+                    maxOutputTokens: 2000,
+                    temperature: 0.7,
+                },
             }),
         });
 
         if (!response.ok) {
             const error = await response.text();
-            console.error("Claude API error:", error);
+            console.error("Gemini API error:", error);
             return NextResponse.json(
                 {
                     response: "Sorry, I'm having trouble connecting to my brain right now. Please try again later.",
@@ -69,7 +69,7 @@ ${context.repoContext ? `Repository context: ${context.repoContext}` : ""}`;
         }
 
         const data = await response.json();
-        const assistantMessage = data.content[0]?.text || "I couldn't generate a response.";
+        const assistantMessage = data.candidates?.[0]?.content?.parts?.[0]?.text || "I couldn't generate a response.";
 
         return NextResponse.json({ response: assistantMessage });
     } catch (error) {
