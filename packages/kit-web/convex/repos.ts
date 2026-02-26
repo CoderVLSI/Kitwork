@@ -496,3 +496,135 @@ function decodeObject(base64Data: string): string {
         return base64Data;
     }
 }
+
+// ─── Remix (Fork) ───
+export const remix = mutation({
+    args: {
+        sourceOwnerUsername: v.string(),
+        sourceRepoName: v.string(),
+        newOwnerId: v.id("users"),
+        newOwnerUsername: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const sourceRepo = await ctx.db
+            .query("repos")
+            .withIndex("by_owner_name", (q) =>
+                q.eq("ownerUsername", args.sourceOwnerUsername).eq("name", args.sourceRepoName))
+            .first();
+        if (!sourceRepo) throw new Error("Source repository not found");
+
+        // Check if user already has a repo with same name
+        const existing = await ctx.db
+            .query("repos")
+            .withIndex("by_owner_name", (q) =>
+                q.eq("ownerUsername", args.newOwnerUsername).eq("name", args.sourceRepoName))
+            .first();
+        if (existing) throw new Error("You already have a repo with this name");
+
+        // Create the remixed repo
+        const newRepoId = await ctx.db.insert("repos", {
+            name: sourceRepo.name,
+            ownerId: args.newOwnerId,
+            ownerUsername: args.newOwnerUsername,
+            description: sourceRepo.description,
+            isPublic: true,
+            defaultBranch: sourceRepo.defaultBranch,
+            forkedFrom: sourceRepo._id,
+            forkedFromName: `${args.sourceOwnerUsername}/${args.sourceRepoName}`,
+        });
+
+        // Copy all objects
+        const objects = await ctx.db.query("objects")
+            .withIndex("by_repo_hash", (q) => q.eq("repoId", sourceRepo._id))
+            .collect();
+        for (const obj of objects) {
+            await ctx.db.insert("objects", {
+                repoId: newRepoId, hash: obj.hash, data: obj.data,
+            });
+        }
+
+        // Copy branches
+        const branches = await ctx.db.query("branches")
+            .withIndex("by_repo", (q) => q.eq("repoId", sourceRepo._id))
+            .collect();
+        for (const branch of branches) {
+            await ctx.db.insert("branches", {
+                repoId: newRepoId, name: branch.name, commitHash: branch.commitHash,
+            });
+        }
+
+        // Copy commits
+        const commits = await ctx.db.query("commits")
+            .withIndex("by_repo_branch", (q) => q.eq("repoId", sourceRepo._id))
+            .collect();
+        for (const commit of commits) {
+            await ctx.db.insert("commits", {
+                repoId: newRepoId, hash: commit.hash, treeHash: commit.treeHash,
+                parentHash: commit.parentHash, author: commit.author,
+                message: commit.message, timestamp: commit.timestamp, branch: commit.branch,
+            });
+        }
+
+        // Track activity
+        await ctx.db.insert("activities", {
+            userId: args.newOwnerId,
+            type: "repo_created",
+            targetId: newRepoId,
+            description: `Remixed ${args.sourceOwnerUsername}/${args.sourceRepoName}`,
+            timestamp: Math.floor(Date.now() / 1000),
+        });
+
+        return { id: newRepoId, name: sourceRepo.name };
+    },
+});
+
+// Get remix count for a repo
+export const getRemixCount = query({
+    args: { repoId: v.id("repos") },
+    handler: async (ctx, args) => {
+        const remixes = await ctx.db.query("repos")
+            .withIndex("by_forked_from", (q) => q.eq("forkedFrom", args.repoId))
+            .collect();
+        return remixes.length;
+    },
+});
+
+// Get explore data — all public repos with spark counts
+export const getExploreData = query({
+    handler: async (ctx) => {
+        const repos = await ctx.db.query("repos").collect();
+        const publicRepos = repos.filter(r => r.isPublic);
+
+        // Get spark counts for each repo
+        const reposWithStats = await Promise.all(publicRepos.map(async (repo) => {
+            const sparks = await ctx.db.query("sparks")
+                .withIndex("by_repo", (q) => q.eq("repoId", repo._id))
+                .collect();
+
+            const commits = await ctx.db.query("commits")
+                .withIndex("by_repo_branch", (q) => q.eq("repoId", repo._id))
+                .collect();
+
+            const remixes = await ctx.db.query("repos")
+                .withIndex("by_forked_from", (q) => q.eq("forkedFrom", repo._id))
+                .collect();
+
+            return {
+                ...repo,
+                sparkCount: sparks.length,
+                commitCount: commits.length,
+                remixCount: remixes.length,
+            };
+        }));
+
+        return {
+            trending: [...reposWithStats].sort((a, b) => b.sparkCount - a.sparkCount),
+            mostActive: [...reposWithStats].sort((a, b) => b.commitCount - a.commitCount),
+            newest: [...reposWithStats].sort((a, b) => {
+                const aTime = a._creationTime || 0;
+                const bTime = b._creationTime || 0;
+                return bTime - aTime;
+            }),
+        };
+    },
+});

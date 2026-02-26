@@ -31,9 +31,12 @@ export default defineSchema({
         description: v.string(),
         isPublic: v.boolean(),
         defaultBranch: v.string(),
+        forkedFrom: v.optional(v.id("repos")), // Remix source
+        forkedFromName: v.optional(v.string()), // "user/repo" display
     })
         .index("by_owner", ["ownerId"])
-        .index("by_owner_name", ["ownerUsername", "name"]),
+        .index("by_owner_name", ["ownerUsername", "name"])
+        .index("by_forked_from", ["forkedFrom"]),
 
     // Branches
     branches: defineTable({
@@ -134,4 +137,21 @@ export default defineSchema({
         timestamp: v.number(),
     })
         .index("by_thread", ["threadId"]),
+
+    // 🩹 Patches — pull request equivalent
+    patches: defineTable({
+        sourceRepoId: v.id("repos"),
+        targetRepoId: v.id("repos"),
+        authorId: v.id("users"),
+        authorUsername: v.string(),
+        title: v.string(),
+        description: v.string(),
+        sourceBranch: v.string(),
+        targetBranch: v.string(),
+        status: v.string(), // "open" | "merged" | "closed"
+        timestamp: v.number(),
+    })
+        .index("by_target", ["targetRepoId"])
+        .index("by_source", ["sourceRepoId"])
+        .index("by_target_status", ["targetRepoId", "status"]),
 });
