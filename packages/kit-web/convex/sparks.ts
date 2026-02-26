@@ -46,7 +46,7 @@ export const toggle = mutation({
     },
 });
 
-// Get sparks for a repo with counts per emoji
+// Get sparks for a repo with counts per type
 export const getByRepo = query({
     args: { repoId: v.id("repos") },
     handler: async (ctx, args) => {
@@ -55,15 +55,20 @@ export const getByRepo = query({
             .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
             .collect();
 
-        const counts: Record<string, number> = {};
-        for (const spark of sparks) {
-            counts[spark.emoji] = (counts[spark.emoji] || 0) + 1;
+        // Filter to only valid ASCII spark IDs (skip any legacy emoji records)
+        const validSparks = sparks.filter(s => VALID_SPARKS.includes(s.emoji));
+
+        // Build counts as array (not object) to avoid Convex field name restrictions
+        const countMap = new Map<string, number>();
+        for (const spark of validSparks) {
+            countMap.set(spark.emoji, (countMap.get(spark.emoji) || 0) + 1);
         }
+        const counts = Array.from(countMap.entries()).map(([id, count]) => ({ id, count }));
 
         return {
-            total: sparks.length,
+            total: validSparks.length,
             counts,
-            sparks: sparks.map(s => ({ userId: s.userId, emoji: s.emoji })),
+            sparks: validSparks.map(s => ({ userId: s.userId, emoji: s.emoji })),
         };
     },
 });

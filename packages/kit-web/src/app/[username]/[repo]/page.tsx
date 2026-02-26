@@ -308,8 +308,8 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                     {/* Spark breakdown */}
                     {sparkData && sparkData.total > 0 && (
                         <div className="flex items-center gap-2 mt-2">
-                            {Object.entries(sparkData.counts).map(([id, count]) => (
-                                <span key={id} className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-[var(--kit-text-muted)]">{SPARK_MAP[id] || id} {count}</span>
+                            {sparkData.counts.map((c: { id: string; count: number }) => (
+                                <span key={c.id} className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-[var(--kit-text-muted)]">{SPARK_MAP[c.id] || c.id} {c.count}</span>
                             ))}
                         </div>
                     )}
