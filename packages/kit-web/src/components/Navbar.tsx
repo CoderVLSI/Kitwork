@@ -39,8 +39,8 @@ export default function Navbar() {
         // Keyboard shortcut: "/" to focus search
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "/" &&
-!['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)
-) {
+                !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)
+            ) {
                 e.preventDefault();
                 searchInputRef.current?.focus();
             }
@@ -177,6 +177,13 @@ export default function Navbar() {
                     {/* Desktop Nav */}
                     <div className="hidden md:flex items-center gap-4">
                         <Link
+                            href="/copilot"
+                            className="flex items-center justify-center p-1.5 rounded-lg border border-[var(--kit-border)] bg-gradient-to-br from-[#1a1a24] to-[#12121a] hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/10 transition-all group mr-2"
+                            title="KitBot Copilot"
+                        >
+                            <Image src="/copilot-icon.png" alt="Copilot" width={18} height={18} className="group-hover:scale-110 transition-transform opacity-80 group-hover:opacity-100" />
+                        </Link>
+                        <Link
                             href="/explore"
                             className="text-sm text-[var(--kit-text-muted)] hover:text-white transition-colors"
                         >
@@ -285,6 +292,10 @@ export default function Navbar() {
                             />
                         </div>
 
+                        <Link href="/copilot" className="flex items-center gap-2 text-sm text-[var(--kit-text)] hover:text-white mb-2 pb-2 border-b border-[var(--kit-border)]/50">
+                            <Image src="/copilot-icon.png" alt="Copilot" width={16} height={16} className="opacity-80" />
+                            KitBot Copilot
+                        </Link>
                         <Link href="/explore" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Explore</Link>
                         <Link href="/docs" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Docs</Link>
                         <Link href="/pricing" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Pricing</Link>

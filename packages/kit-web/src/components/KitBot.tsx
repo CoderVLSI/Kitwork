@@ -9,6 +9,7 @@ interface KitBotProps {
     currentFile?: string | null;
     fileContent?: string;
     repoContext?: string;
+    userId?: string;
 }
 
 interface Message {
@@ -16,7 +17,7 @@ interface Message {
     content: string;
 }
 
-export default function KitBot({ repoName, username, currentFile, fileContent, repoContext }: KitBotProps) {
+export default function KitBot({ repoName, username, currentFile, fileContent, repoContext, userId }: KitBotProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
         {
@@ -89,6 +90,9 @@ ${parsed.stats ? `Statistics:
                     message: userMessage,
                     context,
                     apiKey,
+                    username,
+                    repoName,
+                    userId,
                 }),
             });
 

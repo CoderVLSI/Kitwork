@@ -12,6 +12,7 @@ import type * as activities from "../activities.js";
 import type * as crew from "../crew.js";
 import type * as gitOps from "../gitOps.js";
 import type * as http from "../http.js";
+import type * as kitbot from "../kitbot.js";
 import type * as patches from "../patches.js";
 import type * as repos from "../repos.js";
 import type * as search from "../search.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   crew: typeof crew;
   gitOps: typeof gitOps;
   http: typeof http;
+  kitbot: typeof kitbot;
   patches: typeof patches;
   repos: typeof repos;
   search: typeof search;

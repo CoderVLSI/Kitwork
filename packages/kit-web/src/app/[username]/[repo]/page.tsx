@@ -614,6 +614,7 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                         } : null
                     }) : repoInfo?.description
                 }
+                userId={user?.id}
             />
         </div>
     );
