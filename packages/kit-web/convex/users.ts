@@ -58,6 +58,19 @@ function generateToken(): string {
     return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * Legacy hash for backward compatibility with old accounts.
+ */
+function legacyHash(str: string): string {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36) + str.length.toString(36);
+}
+
 // ─── Register ───
 export const register = mutation({
     args: {
@@ -125,9 +138,22 @@ export const login = mutation({
 
         if (!user) throw new Error("Invalid credentials");
 
-        // Verify password
-        const valid = await verifyPassword(args.password, user.passwordHash);
+        // Verify password — support both old simple hash and new PBKDF2
+        let valid = false;
+        if (user.passwordHash.startsWith("pbkdf2:")) {
+            // New PBKDF2 format
+            valid = await verifyPassword(args.password, user.passwordHash);
+        } else {
+            // Legacy simple hash — compare directly
+            valid = user.passwordHash === legacyHash(args.password);
+        }
         if (!valid) throw new Error("Invalid credentials");
+
+        // Auto-migrate old hash to PBKDF2
+        if (!user.passwordHash.startsWith("pbkdf2:")) {
+            const newHash = await hashPassword(args.password);
+            await ctx.db.patch(user._id, { passwordHash: newHash });
+        }
 
         // Generate token
         const token = generateToken();
