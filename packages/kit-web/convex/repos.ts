@@ -309,14 +309,16 @@ export const createFile = mutation({
             .first();
         if (!repo) throw new Error("Repository not found");
 
-        // Get the current branch
-        const branchRef = await ctx.db
+        // Get the current branch (may not exist for empty repos)
+        let branchRef = await ctx.db
             .query("branches")
             .withIndex("by_repo_name", (q) =>
                 q.eq("repoId", repo._id).eq("name", args.branch)
             )
             .first();
-        if (!branchRef) throw new Error("Branch not found");
+
+        // For empty repos — create an initial commit without parent
+        const isFirstCommit = !branchRef;
 
         // Create blob object
         const blobContent = args.content;
@@ -337,39 +339,40 @@ export const createFile = mutation({
             });
         }
 
-        // Get current commit's tree
-        const commitObj = await ctx.db
-            .query("objects")
-            .withIndex("by_repo_hash", (q) =>
-                q.eq("repoId", repo._id).eq("hash", branchRef.commitHash)
-            )
-            .first();
-        if (!commitObj) throw new Error("Commit not found");
-
-        const commitText = decodeObject(commitObj.data);
-        const treeMatch = commitText.match(/^tree (\w+)/m);
-        const parentTreeHash = treeMatch ? treeMatch[1] : null;
-
         // Build new tree with the new file
         let newTreeEntries: string[] = [];
 
-        if (parentTreeHash) {
-            // Read existing tree
-            const parentTreeObj = await ctx.db
+        if (!isFirstCommit && branchRef) {
+            // Get current commit's tree
+            const commitObj = await ctx.db
                 .query("objects")
                 .withIndex("by_repo_hash", (q) =>
-                    q.eq("repoId", repo._id).eq("hash", parentTreeHash)
+                    q.eq("repoId", repo._id).eq("hash", branchRef.commitHash)
                 )
                 .first();
-            if (parentTreeObj) {
-                const treeText = decodeObject(parentTreeObj.data);
-                const lines = treeText.trim().split("\n").filter(Boolean);
-                // Filter out existing entry with same path
-                newTreeEntries = lines.filter((line: string) => {
-                    const parts = line.split(" ");
-                    const name = parts.slice(3).join(" ");
-                    return name !== args.path;
-                });
+
+            if (commitObj) {
+                const commitText = decodeObject(commitObj.data);
+                const treeMatch = commitText.match(/^tree (\w+)/m);
+                const parentTreeHash = treeMatch ? treeMatch[1] : null;
+
+                if (parentTreeHash) {
+                    const parentTreeObj = await ctx.db
+                        .query("objects")
+                        .withIndex("by_repo_hash", (q) =>
+                            q.eq("repoId", repo._id).eq("hash", parentTreeHash)
+                        )
+                        .first();
+                    if (parentTreeObj) {
+                        const treeText = decodeObject(parentTreeObj.data);
+                        const lines = treeText.trim().split("\n").filter(Boolean);
+                        newTreeEntries = lines.filter((line: string) => {
+                            const parts = line.split(" ");
+                            const name = parts.slice(3).join(" ");
+                            return name !== args.path;
+                        });
+                    }
+                }
             }
         }
 
@@ -399,8 +402,9 @@ export const createFile = mutation({
 
         // Create commit object
         const now = Math.floor(Date.now() / 1000);
+        const parentLine = isFirstCommit ? "" : `parent ${branchRef!.commitHash}\n`;
         const commitContent = `tree ${treeHash}\n` +
-            `parent ${branchRef.commitHash}\n` +
+            parentLine +
             `author ${args.author} <${args.author}@kitwork> ${now} +0000\n` +
             `committer ${args.author} <${args.author}@kitwork> ${now} +0000\n` +
             `\n` +
@@ -415,22 +419,30 @@ export const createFile = mutation({
             data: commitData,
         });
 
-        // Update branch reference
-        await ctx.db.patch(branchRef._id, { commitHash });
+        // Update or create branch reference
+        if (isFirstCommit) {
+            await ctx.db.insert("branches", {
+                repoId: repo._id,
+                name: args.branch,
+                commitHash,
+            });
+        } else {
+            await ctx.db.patch(branchRef!._id, { commitHash });
+        }
 
         // Store commit info in commits table
         await ctx.db.insert("commits", {
             repoId: repo._id,
             hash: commitHash,
             treeHash,
-            parentHash: branchRef.commitHash,
+            parentHash: isFirstCommit ? "" : branchRef!.commitHash,
             author: args.author,
             message: args.message,
             timestamp: now,
             branch: args.branch,
         });
 
-        // Track activity - get userId from repo owner
+        // Track activity
         await ctx.db.insert("activities", {
             userId: repo.ownerId,
             type: "file_created",
@@ -459,9 +471,9 @@ function simpleHash(content: string): string {
     }
     // Convert to hex string padded to 8 characters
     return Math.abs(hash).toString(16).padStart(8, "0") +
-           Math.abs(hash >> 8).toString(16).padStart(8, "0") +
-           Math.abs(hash >> 16).toString(16).padStart(8, "0") +
-           Math.abs(hash >> 24).toString(16).padStart(8, "0");
+        Math.abs(hash >> 8).toString(16).padStart(8, "0") +
+        Math.abs(hash >> 16).toString(16).padStart(8, "0") +
+        Math.abs(hash >> 24).toString(16).padStart(8, "0");
 }
 
 /**
