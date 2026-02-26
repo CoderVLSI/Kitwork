@@ -1,9 +1,11 @@
-import { Config } from "@remotion/cli/config";
+import { Config } from "remotion";
 
-export default Config({
+const config: Config = {
     entry: "src/index.ts",
     output: "out",
     codec: "h264",
     crf: 18,
     pixelsPerFrame: 1,
-});
+};
+
+export default config;

@@ -4,12 +4,7 @@ import {
     spring,
     useCurrentFrame,
     useVideoConfig,
-    Video,
-    Audio,
-    Series,
-    Sequence,
 } from "remotion";
-import { z } from "zod";
 
 // Kitwork brand colors
 const ORANGE = "#f97316";
@@ -163,157 +158,157 @@ export const MarketingVideo: React.FC<{ title: string }> = ({ title }) => {
     const { fps, durationInFrames } = useVideoConfig();
 
     // Scene transitions
-    const scene1 = 0; // Intro: 0-180 frames (0-6 sec)
-    const scene2 = 180; // Features: 180-450 frames (6-15 sec)
-    const scene3 = 450; // Code demo: 450-630 frames (15-21 sec)
-    const scene4 = 630; // CTA: 630-900 frames (21-30 sec)
+    const scene1End = 180;
+    const scene2End = 450;
+    const scene3End = 630;
+
+    // Determine which scene to show
+    const scene = frame < scene1End ? 1 : frame < scene2End ? 2 : frame < scene3End ? 3 : 4;
 
     return (
         <AbsoluteFill style={{ backgroundColor: DARK }}>
-            <Series>
-                {/* Scene 1: Hero Intro */}
-                <Sequence from={0} durationInFrames={180}>
-                    <AbsoluteFill
-                        style={{
-                            background: `linear-gradient(135deg, ${DARK} 0%, #1a1a26 100%)`,
-                            justifyContent: "center",
-                            alignItems: "center",
-                        }}
-                    >
-                        <div style={{ textAlign: "center" }}>
-                            {/* KitBot icon animation */}
-                            <div
-                                style={{
-                                    fontSize: 120,
-                                    marginBottom: 30,
-                                    animation: "bounce 1s ease-in-out infinite",
-                                }}
-                            >
-                                🐱‍🏗️
-                            </div>
-
-                            {/* Main title */}
-                            <Title frame={frame} delay={10}>
-                                {title}
-                            </Title>
-
-                            {/* Subtitle */}
-                            <FadeIn frame={frame} from={60} duration={60}>
-                                <h2
-                                    style={{
-                                        color: ORANGE,
-                                        fontSize: 48,
-                                        marginTop: 20,
-                                        fontWeight: "600",
-                                    }}
-                                >
-                                    Build Faster. Ship Smarter.
-                                </h2>
-                            </FadeIn>
-
-                            {/* Tagline */}
-                            <FadeIn frame={frame} from={100} duration={60}>
-                                <p
-                                    style={{
-                                        color: "#8888a0",
-                                        fontSize: 28,
-                                        marginTop: 30,
-                                    }}
-                                >
-                                    The modern code hosting platform for developers
-                                </p>
-                            </FadeIn>
-                        </div>
-                    </AbsoluteFill>
-                </Sequence>
-
-                {/* Scene 2: Features Showcase */}
-                <Sequence from={180} durationInFrames={270}>
-                    <AbsoluteFill
-                        style={{
-                            background: `linear-gradient(135deg, ${DARK} 0%, #0f0a0a 100%)`,
-                            padding: 80,
-                            justifyContent: "center",
-                        }}
-                    >
-                        <h1
-                            style={{
-                                color: TEXT,
-                                fontSize: 64,
-                                fontWeight: "bold",
-                                textAlign: "center",
-                                marginBottom: 60,
-                            }}
-                        >
-                            Everything You Need
-                        </h1>
-
+            {/* Scene 1: Hero Intro (0-6 seconds) */}
+            {scene === 1 && (
+                <AbsoluteFill
+                    style={{
+                        background: `linear-gradient(135deg, ${DARK} 0%, #1a1a26 100%)`,
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <div style={{ textAlign: "center" }}>
+                        {/* KitBot icon animation */}
                         <div
                             style={{
-                                display: "grid",
-                                gridTemplateColumns: "repeat(2, 1fr)",
-                                gap: 40,
-                                maxWidth: 1600,
-                                margin: "0 auto",
+                                fontSize: 120,
+                                marginBottom: 30,
                             }}
                         >
-                            <FeatureCard
-                                title="⚡ Sparks"
-                                description="React with emojis - more expressive than stars"
-                                icon="⚡"
-                                frame={frame}
-                                delay={scene2 + 20}
-                            />
-                            <FeatureCard
-                                title="👥 Crew"
-                                description="Follow developers and build your network"
-                                icon="👥"
-                                frame={frame}
-                                delay={scene2 + 40}
-                            />
-                            <FeatureCard
-                                title="🧵 Threads"
-                                description="Rich discussions with markdown support"
-                                icon="🧵"
-                                frame={frame}
-                                delay={scene2 + 60}
-                            />
-                            <FeatureCard
-                                title="🩹 Patches"
-                                description="Easy pull requests with branch management"
-                                icon="🩹"
-                                frame={frame}
-                                delay={scene2 + 80}
-                            />
+                            🐱‍🏗️
                         </div>
-                    </AbsoluteFill>
-                </Sequence>
 
-                {/* Scene 3: Code Demo */}
-                <Sequence from={450} durationInFrames={180}>
-                    <AbsoluteFill
+                        {/* Main title */}
+                        <Title frame={frame} delay={10}>
+                            {title}
+                        </Title>
+
+                        {/* Subtitle */}
+                        <FadeIn frame={frame} from={60} duration={60}>
+                            <h2
+                                style={{
+                                    color: ORANGE,
+                                    fontSize: 48,
+                                    marginTop: 20,
+                                    fontWeight: "600",
+                                }}
+                            >
+                                Build Faster. Ship Smarter.
+                            </h2>
+                        </FadeIn>
+
+                        {/* Tagline */}
+                        <FadeIn frame={frame} from={100} duration={60}>
+                            <p
+                                style={{
+                                    color: "#8888a0",
+                                    fontSize: 28,
+                                    marginTop: 30,
+                                }}
+                            >
+                                The modern code hosting platform for developers
+                            </p>
+                        </FadeIn>
+                    </div>
+                </AbsoluteFill>
+            )}
+
+            {/* Scene 2: Features Showcase (6-15 seconds) */}
+            {scene === 2 && (
+                <AbsoluteFill
+                    style={{
+                        background: `linear-gradient(135deg, ${DARK} 0%, #0f0a0a 100%)`,
+                        padding: 80,
+                        justifyContent: "center",
+                    }}
+                >
+                    <h1
                         style={{
-                            background: DARK,
-                            padding: 80,
-                            justifyContent: "center",
-                            alignItems: "center",
+                            color: TEXT,
+                            fontSize: 64,
+                            fontWeight: "bold",
+                            textAlign: "center",
+                            marginBottom: 60,
                         }}
                     >
-                        <h2
-                            style={{
-                                color: ORANGE,
-                                fontSize: 56,
-                                marginBottom: 40,
-                                fontWeight: "bold",
-                            }}
-                        >
-                            Simple. Fast. Powerful.
-                        </h2>
+                        Everything You Need
+                    </h1>
 
-                        <CodeSnippet
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(2, 1fr)",
+                            gap: 40,
+                            maxWidth: 1600,
+                            margin: "0 auto",
+                        }}
+                    >
+                        <FeatureCard
+                            title="⚡ Sparks"
+                            description="React with emojis - more expressive than stars"
+                            icon="⚡"
                             frame={frame}
-                            delay={scene3 + 30}
-                            code={`# Clone a repository
+                            delay={180 + 20}
+                        />
+                        <FeatureCard
+                            title="👥 Crew"
+                            description="Follow developers and build your network"
+                            icon="👥"
+                            frame={frame}
+                            delay={180 + 40}
+                        />
+                        <FeatureCard
+                            title="🧵 Threads"
+                            description="Rich discussions with markdown support"
+                            icon="🧵"
+                            frame={frame}
+                            delay={180 + 60}
+                        />
+                        <FeatureCard
+                            title="🩹 Patches"
+                            description="Easy pull requests with branch management"
+                            icon="🩹"
+                            frame={frame}
+                            delay={180 + 80}
+                        />
+                    </div>
+                </AbsoluteFill>
+            )}
+
+            {/* Scene 3: Code Demo (15-21 seconds) */}
+            {scene === 3 && (
+                <AbsoluteFill
+                    style={{
+                        background: DARK,
+                        padding: 80,
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <h2
+                        style={{
+                            color: ORANGE,
+                            fontSize: 56,
+                            marginBottom: 40,
+                            fontWeight: "bold",
+                        }}
+                    >
+                        Simple. Fast. Powerful.
+                    </h2>
+
+                    <CodeSnippet
+                        frame={frame}
+                        delay={450 + 30}
+                        code={`# Clone a repository
 kit clone username/project
 
 # Create a new file
@@ -324,68 +319,67 @@ kit commit "Add new feature"
 
 # Push to remote
 kit push`}
-                        />
-                    </AbsoluteFill>
-                </Sequence>
+                    />
+                </AbsoluteFill>
+            )}
 
-                {/* Scene 4: Call to Action */}
-                <Sequence from={630} durationInFrames={270}>
-                    <AbsoluteFill
-                        style={{
-                            background: `linear-gradient(135deg, ${BLUE} 0%, ${ORANGE} 100%)`,
-                            justifyContent: "center",
-                            alignItems: "center",
-                        }}
-                    >
-                        <div style={{ textAlign: "center" }}>
-                            <h1
-                                style={{
-                                    color: "white",
-                                    fontSize: 80,
-                                    fontWeight: "bold",
-                                    marginBottom: 30,
-                                }}
-                            >
-                                Start Building Today
-                            </h1>
+            {/* Scene 4: Call to Action (21-30 seconds) */}
+            {scene === 4 && (
+                <AbsoluteFill
+                    style={{
+                        background: `linear-gradient(135deg, ${BLUE} 0%, ${ORANGE} 100%)`,
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
+                >
+                    <div style={{ textAlign: "center" }}>
+                        <h1
+                            style={{
+                                color: "white",
+                                fontSize: 80,
+                                fontWeight: "bold",
+                                marginBottom: 30,
+                            }}
+                        >
+                            Start Building Today
+                        </h1>
 
-                            <p
-                                style={{
-                                    color: "rgba(255,255,255,0.9)",
-                                    fontSize: 32,
-                                    marginBottom: 50,
-                                }}
-                            >
-                                Join thousands of developers shipping faster
-                            </p>
+                        <p
+                            style={{
+                                color: "rgba(255,255,255,0.9)",
+                                fontSize: 32,
+                                marginBottom: 50,
+                            }}
+                        >
+                            Join thousands of developers shipping faster
+                        </p>
 
-                            <div
-                                style={{
-                                    backgroundColor: "white",
-                                    color: ORANGE,
-                                    padding: "20px 60px",
-                                    borderRadius: 50,
-                                    fontSize: 28,
-                                    fontWeight: "bold",
-                                    display: "inline-block",
-                                }}
-                            >
-                                Get Started Free →
-                            </div>
-
-                            <p
-                                style={{
-                                    color: "rgba(255,255,255,0.7)",
-                                    fontSize: 24,
-                                    marginTop: 40,
-                                }}
-                            >
-                                kitwork.dev
-                            </p>
+                        <div
+                            style={{
+                                backgroundColor: "white",
+                                color: ORANGE,
+                                padding: "20px 60px",
+                                borderRadius: 50,
+                                fontSize: 28,
+                                fontWeight: "bold",
+                                display: "inline-block",
+                            }}
+                        >
+                            Get Started Free →
                         </div>
-                    </AbsoluteFill>
-                </Sequence>
-            </Series>
+
+                        <p
+                            style={{
+                                color: "rgba(255,255,255,0.7)",
+                                fontSize: 24,
+                                marginTop: 40,
+                            }}
+                        >
+                            kitwork.dev
+                        </p>
+                    </div>
+                </AbsoluteFill>
+            )}
         </AbsoluteFill>
     );
 };
