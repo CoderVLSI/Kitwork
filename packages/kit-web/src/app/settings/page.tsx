@@ -139,8 +139,8 @@ export default function SettingsPage() {
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
-                                    if (file.size > 500 * 1024) {
-                                        setMessage("Image must be under 500KB");
+                                    if (file.size > 2 * 1024 * 1024) {
+                                        setMessage("Image must be under 2MB");
                                         return;
                                     }
                                     const reader = new FileReader();
@@ -172,7 +172,7 @@ export default function SettingsPage() {
                                     </button>
                                 )}
                             </div>
-                            <p className="text-[10px] text-[var(--kit-text-muted)] mt-1.5">JPG, PNG or GIF. Max 500KB.</p>
+                            <p className="text-[10px] text-[var(--kit-text-muted)] mt-1.5">JPG, PNG or GIF. Max 2MB.</p>
                         </div>
                     </div>
 
