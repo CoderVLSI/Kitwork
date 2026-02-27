@@ -30,12 +30,25 @@ module.exports = function pull(remoteName, branchName) {
         const convexUrl = config.server || 'https://colorful-ibis-753.convex.site';
         const pullUrl = `${convexUrl}/api/pull?owner=${ownerUsername}&repo=${repoName}&branch=${branchName}`;
 
+        // Read auth token
+        const authToken = config.auth && config.auth.token;
+
         console.log(chalk.dim(`Pulling ${ownerUsername}/${repoName} (${branchName})...`));
 
         const urlObj = new URL(pullUrl);
         const transport = urlObj.protocol === 'https:' ? https : http;
 
-        transport.get(pullUrl, (res) => {
+        const reqOptions = {
+            hostname: urlObj.hostname,
+            port: urlObj.port,
+            path: urlObj.pathname + urlObj.search,
+            method: 'GET',
+            headers: {
+                ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+            },
+        };
+
+        const req = transport.request(reqOptions, (res) => {
             let body = '';
             res.on('data', (chunk) => (body += chunk));
             res.on('end', () => {
@@ -76,9 +89,13 @@ module.exports = function pull(remoteName, branchName) {
                     console.error(chalk.red('✗'), 'Failed to parse response:', parseErr.message);
                 }
             });
-        }).on('error', (err) => {
+        });
+
+        req.on('error', (err) => {
             console.error(chalk.red('✗'), `Connection failed: ${err.message}`);
         });
+
+        req.end();
     } catch (err) {
         console.error(chalk.red('✗'), err.message);
         process.exit(1);

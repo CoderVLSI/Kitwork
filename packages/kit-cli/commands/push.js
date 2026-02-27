@@ -42,6 +42,13 @@ module.exports = function push(remoteName, branchName) {
         // Read config for Convex URL
         const convexUrl = config.server || 'https://colorful-ibis-753.convex.site';
 
+        // Read auth token
+        const authToken = config.auth && config.auth.token;
+        if (!authToken) {
+            console.log(chalk.yellow('⚠'), 'Not logged in. Push may fail for private repos.');
+            console.log(chalk.dim('  Run `kit login` to authenticate.\n'));
+        }
+
         // Collect all objects to push
         const objectHashes = new Set();
         collectObjects(commitHash, kitDir, objectHashes);
@@ -88,6 +95,7 @@ module.exports = function push(remoteName, branchName) {
                 headers: {
                     'Content-Type': 'application/json',
                     'Content-Length': Buffer.byteLength(payload),
+                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
                 },
             },
             (res) => {

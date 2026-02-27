@@ -302,3 +302,99 @@ export const me = query({
         };
     },
 });
+
+// ─── Kit Keys ───
+
+/**
+ * Create a Kit Key — returns the raw token (shown once).
+ */
+export const createKitKey = mutation({
+    args: {
+        userId: v.id("users"),
+        name: v.string(),
+    },
+    handler: async (ctx, args) => {
+        const user = await ctx.db.get(args.userId);
+        if (!user) throw new Error("User not found");
+
+        // Generate a random token: kitkey_<64 hex chars>
+        const bytes = crypto.getRandomValues(new Uint8Array(32));
+        const rawToken = "kitkey_" + Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+
+        // Store a simple hash of the token for lookup
+        const encoder = new TextEncoder();
+        const hashBuffer = await crypto.subtle.digest("SHA-256", encoder.encode(rawToken));
+        const tokenHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+        await ctx.db.insert("kitKeys", {
+            userId: args.userId,
+            token: tokenHash,
+            name: args.name,
+        });
+
+        return { rawToken };
+    },
+});
+
+/**
+ * List Kit Keys for a user (never returns the token itself).
+ */
+export const listKitKeys = query({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        const keys = await ctx.db
+            .query("kitKeys")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .collect();
+        return keys.map((k) => ({
+            id: k._id,
+            name: k.name,
+            createdAt: k._creationTime,
+            lastUsedAt: k.lastUsedAt,
+        }));
+    },
+});
+
+/**
+ * Delete (revoke) a Kit Key.
+ */
+export const deleteKitKey = mutation({
+    args: { keyId: v.id("kitKeys") },
+    handler: async (ctx, args) => {
+        await ctx.db.delete(args.keyId);
+    },
+});
+
+/**
+ * Verify a Kit Key token — used by HTTP push/pull endpoints.
+ * Returns user info if valid, null if not.
+ */
+export const verifyKitKey = query({
+    args: { tokenHash: v.string() },
+    handler: async (ctx, args) => {
+        const keyRecord = await ctx.db
+            .query("kitKeys")
+            .withIndex("by_token", (q) => q.eq("token", args.tokenHash))
+            .first();
+        if (!keyRecord) return null;
+
+        const user = await ctx.db.get(keyRecord.userId);
+        if (!user) return null;
+
+        return {
+            id: user._id,
+            username: user.username,
+            keyId: keyRecord._id,
+        };
+    },
+});
+
+/**
+ * Update lastUsedAt on a Kit Key (called after successful push).
+ */
+export const touchKitKey = mutation({
+    args: { keyId: v.id("kitKeys") },
+    handler: async (ctx, args) => {
+        await ctx.db.patch(args.keyId, { lastUsedAt: Date.now() });
+    },
+});

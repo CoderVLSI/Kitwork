@@ -16,6 +16,23 @@ const mergeCmd = require('../commands/merge');
 const remoteCmd = require('../commands/remote');
 const pushCmd = require('../commands/push');
 const pullCmd = require('../commands/pull');
+
+const { program } = require('commander');
+const chalk = require('chalk');
+
+// ─── Import commands ───
+const initCmd = require('../commands/init');
+const addCmd = require('../commands/add');
+const commitCmd = require('../commands/commit');
+const logCmd = require('../commands/log');
+const statusCmd = require('../commands/status');
+const branchCmd = require('../commands/branch');
+const checkoutCmd = require('../commands/checkout');
+const diffCmd = require('../commands/diff');
+const mergeCmd = require('../commands/merge');
+const remoteCmd = require('../commands/remote');
+const pushCmd = require('../commands/push');
+const pullCmd = require('../commands/pull');
 const cloneCmd = require('../commands/clone');
 const configCmd = require('../commands/config');
 const resetCmd = require('../commands/reset');
@@ -24,6 +41,8 @@ const rmCmd = require('../commands/rm');
 const showCmd = require('../commands/show');
 const stashCmd = require('../commands/stash');
 const revertCmd = require('../commands/revert');
+const loginCmd = require('../commands/login');
+const logoutCmd = require('../commands/logout');
 
 // ─── CLI Setup ───
 program
@@ -203,5 +222,17 @@ program
     .argument('<commit>', 'Commit hash to revert')
     .description('Create a new commit that undoes a previous commit')
     .action(revertCmd);
+
+// ─── kit login ───
+program
+    .command('login')
+    .description('Authenticate with Kitwork server')
+    .action(loginCmd);
+
+// ─── kit logout ───
+program
+    .command('logout')
+    .description('Remove stored authentication')
+    .action(logoutCmd);
 
 program.parse();

@@ -23,6 +23,16 @@ export default defineSchema({
         .index("by_token", ["token"])
         .index("by_user", ["userId"]),
 
+    // 🔑 Kit Keys — CLI auth tokens (like personal access tokens)
+    kitKeys: defineTable({
+        userId: v.id("users"),
+        token: v.string(),       // hashed token
+        name: v.string(),        // e.g. "My Laptop", "CI/CD"
+        lastUsedAt: v.optional(v.number()),
+    })
+        .index("by_token", ["token"])
+        .index("by_user", ["userId"]),
+
     // Repositories table
     repos: defineTable({
         name: v.string(),
