@@ -175,6 +175,40 @@ export const login = mutation({
     },
 });
 
+// ─── Reset Password ───
+export const resetPassword = mutation({
+    args: {
+        username: v.string(),
+        email: v.string(),
+        newPassword: v.string(),
+    },
+    handler: async (ctx, args) => {
+        // Find user by username
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", args.username))
+            .first();
+
+        if (!user) throw new Error("No account found with that username");
+
+        // Verify email matches
+        if (user.email !== args.email) {
+            throw new Error("Email does not match the account");
+        }
+
+        // Validate new password
+        if (args.newPassword.length < 4) {
+            throw new Error("Password must be at least 4 characters");
+        }
+
+        // Hash new password with PBKDF2
+        const newHash = await hashPassword(args.newPassword);
+        await ctx.db.patch(user._id, { passwordHash: newHash });
+
+        return { success: true, message: "Password has been reset successfully" };
+    },
+});
+
 // ─── Verify Token ───
 export const verifyToken = query({
     args: { token: v.string() },
