@@ -135,7 +135,8 @@ const TOOLS = [
 
 export async function POST(request: NextRequest) {
     try {
-        const { message, context, apiKey: userApiKey, username, repoName, userId } = await request.json();
+        const { message, context, apiKey: userApiKey, username, repoName, userId, model } = await request.json();
+        const modelId = model || "gemini-2.5-flash-preview-05-20";
 
         // Use user's API key first, then fall back to environment variable
         const apiKey = userApiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
@@ -203,7 +204,7 @@ Guidelines:
 - Use occasional cat/construction themed language (let's build this, nail down the bug, hammer out this feature, etc.)`;
 
         // First call - potentially with function calls
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-exp:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -283,7 +284,7 @@ Guidelines:
             }
 
             // Second call with tool results
-            const followUpResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-exp:generateContent?key=${apiKey}`, {
+            const followUpResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -295,7 +296,7 @@ Guidelines:
                                 { text: `${systemInstruction}\n\nUser: ${message}` },
                                 ...parts,
                                 ...toolResults,
-                    ],
+                            ],
                         }
                     ],
                     tools: TOOLS,
