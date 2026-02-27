@@ -110,22 +110,69 @@ export default function SettingsPage() {
                 <div className="glass rounded-2xl p-6 mb-6">
                     <h2 className="text-lg font-semibold text-white mb-6">Profile</h2>
 
-                    {/* Avatar Preview */}
-                    <div className="flex items-center gap-4 mb-6">
-                        {form.avatarUrl ? (
-                            <img
-                                src={form.avatarUrl}
-                                alt="Avatar"
-                                className="w-16 h-16 rounded-xl object-cover"
-                            />
-                        ) : (
-                            <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-black text-2xl">
-                                {form.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
+                    {/* Avatar Upload */}
+                    <div className="flex items-center gap-5 mb-6">
+                        <div className="relative group cursor-pointer" onClick={() => document.getElementById("avatar-upload")?.click()}>
+                            {form.avatarUrl ? (
+                                <img
+                                    src={form.avatarUrl}
+                                    alt="Avatar"
+                                    className="w-20 h-20 rounded-xl object-cover ring-2 ring-[var(--kit-border)] group-hover:ring-orange-500/50 transition-all"
+                                />
+                            ) : (
+                                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-black text-3xl ring-2 ring-[var(--kit-border)] group-hover:ring-orange-500/50 transition-all">
+                                    {form.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
+                                </div>
+                            )}
+                            {/* Overlay */}
+                            <div className="absolute inset-0 rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
                             </div>
-                        )}
-                        <div>
+                            <input
+                                id="avatar-upload"
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 500 * 1024) {
+                                        setMessage("Image must be under 500KB");
+                                        return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onload = () => {
+                                        setForm({ ...form, avatarUrl: reader.result as string });
+                                    };
+                                    reader.readAsDataURL(file);
+                                }}
+                            />
+                        </div>
+                        <div className="flex-1">
                             <div className="text-white font-medium">{form.displayName || user.username}</div>
-                            <div className="text-sm text-[var(--kit-text-muted)]">@{user.username}</div>
+                            <div className="text-sm text-[var(--kit-text-muted)] mb-2">@{user.username}</div>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => document.getElementById("avatar-upload")?.click()}
+                                    className="text-xs px-3 py-1.5 rounded-lg border border-[var(--kit-border)] text-[var(--kit-text-muted)] hover:text-white hover:border-orange-500/50 transition-all"
+                                >
+                                    Upload photo
+                                </button>
+                                {form.avatarUrl && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setForm({ ...form, avatarUrl: "" })}
+                                        className="text-xs px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all"
+                                    >
+                                        Remove
+                                    </button>
+                                )}
+                            </div>
+                            <p className="text-[10px] text-[var(--kit-text-muted)] mt-1.5">JPG, PNG or GIF. Max 500KB.</p>
                         </div>
                     </div>
 
@@ -151,20 +198,6 @@ export default function SettingsPage() {
                                 className="w-full px-4 py-3 rounded-xl bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500 transition-colors resize-none"
                                 placeholder="Tell us about yourself..."
                             />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">Avatar URL</label>
-                            <input
-                                type="url"
-                                value={form.avatarUrl}
-                                onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500 transition-colors"
-                                placeholder="https://example.com/avatar.png"
-                            />
-                            <p className="text-xs text-[var(--kit-text-muted)] mt-1">
-                                Enter a URL for your avatar image
-                            </p>
                         </div>
 
                         {message && (
@@ -251,6 +284,6 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
