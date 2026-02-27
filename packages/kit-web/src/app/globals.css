@@ -3,18 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --kit-bg: #0a0a0f;
-  --kit-surface: #12121a;
-  --kit-surface-2: #1a1a26;
-  --kit-border: #2a2a3a;
-  --kit-text: #e4e4ef;
-  --kit-text-muted: #8888a0;
+  /* Core Palette */
+  --kit-bg: #06060c;
+  --kit-surface: #0e0e18;
+  --kit-surface-2: #161624;
+  --kit-surface-3: #1e1e30;
+  --kit-border: #252540;
+  --kit-border-glow: rgba(255, 171, 64, 0.15);
+
+  /* Typography */
+  --kit-text: #e8e8f0;
+  --kit-text-muted: #7878a0;
+  --kit-text-dim: #505070;
+
+  /* Brand */
   --kit-primary: #f97316;
-  --kit-primary-glow: rgba(249, 115, 22, 0.3);
-  --kit-green: #22c55e;
-  --kit-red: #ef4444;
-  --kit-yellow: #eab308;
-  --kit-cyan: #06b6d4;
+  --kit-primary-light: #ffab40;
+  --kit-primary-glow: rgba(249, 115, 22, 0.25);
+  --kit-amber: #ffab40;
+  --kit-amber-glow: rgba(255, 171, 64, 0.2);
+
+  /* Accents */
+  --kit-indigo: #6366f1;
+  --kit-indigo-glow: rgba(99, 102, 241, 0.2);
+  --kit-green: #34d399;
+  --kit-red: #f87171;
+  --kit-yellow: #fbbf24;
+  --kit-cyan: #22d3ee;
+  --kit-purple: #a78bfa;
 }
 
 * {
@@ -24,7 +40,16 @@
 body {
   background-color: var(--kit-bg);
   color: var(--kit-text);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-body), 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), 'Outfit', sans-serif;
 }
 
 ::selection {
@@ -32,52 +57,290 @@ body {
   color: white;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--kit-bg); }
-::-webkit-scrollbar-thumb { background: var(--kit-border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--kit-text-muted); }
-
-/* Glow effects */
-.glow-orange {
-  box-shadow: 0 0 40px var(--kit-primary-glow), 0 0 80px rgba(249, 115, 22, 0.15);
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-.glow-purple {
-  box-shadow: 0 0 40px var(--kit-primary-glow), 0 0 80px rgba(139, 92, 246, 0.1);
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
+::-webkit-scrollbar-thumb {
+  background: var(--kit-border);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--kit-text-muted);
+}
+
+/* ─── Glass ─── */
 .glass {
-  background: rgba(18, 18, 26, 0.6);
-  backdrop-filter: blur(20px);
+  background: linear-gradient(135deg, rgba(14, 14, 24, 0.7), rgba(10, 10, 18, 0.5));
+  backdrop-filter: blur(24px);
   border: 1px solid var(--kit-border);
+}
+
+.glass-glow {
+  background: linear-gradient(135deg, rgba(14, 14, 24, 0.7), rgba(10, 10, 18, 0.5));
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--kit-border);
+  box-shadow: 0 0 0 1px rgba(255, 171, 64, 0.05), 0 8px 32px -8px rgba(0, 0, 0, 0.5);
+}
+
+.glass-glow:hover {
+  border-color: rgba(255, 171, 64, 0.2);
+  box-shadow: 0 0 0 1px rgba(255, 171, 64, 0.1), 0 8px 40px -8px rgba(249, 115, 22, 0.15);
+}
+
+/* ─── Glow Effects ─── */
+.glow-orange {
+  box-shadow: 0 0 60px var(--kit-primary-glow), 0 0 120px rgba(249, 115, 22, 0.08);
+}
+
+.glow-indigo {
+  box-shadow: 0 0 60px var(--kit-indigo-glow), 0 0 120px rgba(99, 102, 241, 0.08);
+}
+
+.glow-amber {
+  box-shadow: 0 0 40px var(--kit-amber-glow);
+}
+
+/* ─── Gradient Text ─── */
+.gradient-text {
+  background: linear-gradient(135deg, #f97316 0%, #ffab40 40%, #fbbf24 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-indigo {
+  background: linear-gradient(135deg, #6366f1 0%, #a78bfa 50%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Code Font ─── */
+.code-font {
+  font-family: var(--font-mono), 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ─── Noise Grain Overlay ─── */
+.noise-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px;
+}
+
+/* ─── Grid Pattern Background ─── */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(37, 37, 64, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(37, 37, 64, 0.3) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* ─── Dot Grid Pattern ─── */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(120, 120, 160, 0.12) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ─── Animations ─── */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes glow-pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(249, 115, 22, 0.1);
+  }
+
+  50% {
+    box-shadow: 0 0 40px rgba(249, 115, 22, 0.25);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes border-glow {
+
+  0%,
+  100% {
+    border-color: rgba(255, 171, 64, 0.1);
+  }
+
+  50% {
+    border-color: rgba(255, 171, 64, 0.3);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.5s ease-out forwards;
+  opacity: 0;
 }
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
 }
 
-.animate-pulse-slow {
-  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
 }
 
-@keyframes pulse-slow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
+.animate-border-glow {
+  animation: border-glow 3s ease-in-out infinite;
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #f97316 0%, #fb923c 50%, #fbbf24 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.04) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
 }
 
-.code-font {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+/* Stagger delays */
+.delay-1 {
+  animation-delay: 0.1s;
+}
+
+.delay-2 {
+  animation-delay: 0.2s;
+}
+
+.delay-3 {
+  animation-delay: 0.3s;
+}
+
+.delay-4 {
+  animation-delay: 0.4s;
+}
+
+.delay-5 {
+  animation-delay: 0.5s;
+}
+
+.delay-6 {
+  animation-delay: 0.6s;
+}
+
+/* ─── Hover Lift ─── */
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Border Gradient ─── */
+.border-gradient {
+  position: relative;
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.3), rgba(99, 102, 241, 0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ─── Focus Ring ─── */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--kit-primary) !important;
+  box-shadow: 0 0 0 3px var(--kit-primary-glow);
 }

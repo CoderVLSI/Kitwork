@@ -90,13 +90,13 @@ export default function DashboardPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
                         <p className="text-sm text-[var(--kit-text-muted)]">
-                            Welcome back, <span className="text-purple-400">{user.displayName || user.username}</span>
+                            Welcome back, <span className="text-[var(--kit-amber)]">{user.displayName || user.username}</span>
                         </p>
                     </div>
                     <div className="flex gap-3">
                         <button
                             onClick={() => setShowNew(true)}
-                            className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium transition-all hover:shadow-lg hover:shadow-purple-500/25"
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-sm font-medium transition-all hover:shadow-lg hover:shadow-indigo-500/25"
                         >
                             + New Repository
                         </button>
@@ -112,7 +112,7 @@ export default function DashboardPage() {
                 {/* New Repo Modal */}
                 {showNew && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowNew(false)}>
-                        <div className="glass rounded-2xl p-8 w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="glass-glow rounded-2xl p-8 w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
                             <h2 className="text-xl font-bold text-white mb-6">Create a new repository</h2>
                             <form onSubmit={createRepo} className="space-y-4">
                                 <div>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
                                     <span className="text-sm text-[var(--kit-text-muted)]">Public repository</span>
                                 </div>
                                 <div className="flex gap-3 pt-2">
-                                    <button type="submit" className="flex-1 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold transition-all">Create Repository</button>
+                                    <button type="submit" className="flex-1 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold transition-all">Create Repository</button>
                                     <button type="button" onClick={() => setShowNew(false)} className="px-6 py-3 rounded-xl glass text-[var(--kit-text-muted)] hover:text-white transition-colors">Cancel</button>
                                 </div>
                             </form>
@@ -169,7 +169,7 @@ export default function DashboardPage() {
                             <div className="text-4xl mb-4">📦</div>
                             <h3 className="text-lg font-semibold text-white mb-2">No repositories yet</h3>
                             <p className="text-sm text-[var(--kit-text-muted)] mb-6">Create your first repository or push from the CLI.</p>
-                            <button onClick={() => setShowNew(true)} className="px-6 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium transition-all">
+                            <button onClick={() => setShowNew(true)} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 text-white text-sm font-medium transition-all hover:shadow-lg hover:shadow-indigo-500/25">
                                 + New Repository
                             </button>
                         </div>
@@ -178,12 +178,12 @@ export default function DashboardPage() {
                             <Link
                                 key={repo._id}
                                 href={`/${user.username}/${repo.name}`}
-                                className="block glass rounded-xl p-5 hover:border-purple-500/50 transition-all group"
+                                className="block glass-glow rounded-xl p-5 hover:border-indigo-500/30 transition-all group hover-lift"
                             >
                                 <div className="flex items-start justify-between">
                                     <div>
                                         <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="text-base font-semibold text-purple-400 group-hover:text-purple-300 transition-colors">
+                                            <h3 className="text-base font-semibold text-[var(--kit-indigo)] group-hover:text-indigo-400 transition-colors">
                                                 {user.username}/{repo.name}
                                             </h3>
                                             <span className={`text-[10px] px-2 py-0.5 rounded-full border ${repo.isPublic ? "border-[var(--kit-border)] text-[var(--kit-text-muted)]" : "border-yellow-500/30 text-yellow-400"}`}>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Quick Start */}
-                <div className="mt-12 glass rounded-2xl p-6">
+                <div className="mt-12 glass-glow rounded-2xl p-6">
                     <h3 className="text-sm font-semibold text-white mb-3">Quick start — push an existing project</h3>
                     <div className="code-font text-xs text-[var(--kit-text-muted)] space-y-1 bg-[var(--kit-bg)] rounded-xl p-4">
                         <div><span className="text-green-400">$</span> <span className="text-cyan-300">kit</span> init</div>

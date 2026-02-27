@@ -68,12 +68,12 @@ export default function Navbar() {
     };
 
     return (
-        <nav className="fixed top-0 left-0 right-0 z-50 glass">
+        <nav className="fixed top-0 left-0 right-0 z-50 glass" style={{ borderBottom: '1px solid var(--kit-border)' }}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-2.5 group">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg shadow-orange-500/25">
+                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-md shadow-orange-500/20">
                             <Image
                                 src="/mascot.png"
                                 alt="Kitwork Mascot"
@@ -101,7 +101,7 @@ export default function Navbar() {
                                 onFocus={() => setSearchOpen(true)}
                                 onBlur={() => setTimeout(() => setSearchOpen(false), 200)}
                                 placeholder="Search /"
-                                className="w-full pl-10 pr-4 py-2 rounded-lg bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/50 transition-all text-sm"
+                                className="w-full pl-10 pr-4 py-2 rounded-xl bg-[var(--kit-surface)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-dim)] focus:outline-none focus:border-[var(--kit-primary)] transition-all text-sm"
                             />
                             {searchQuery && (
                                 <button
