@@ -11,6 +11,7 @@ interface User {
     username: string;
     email: string;
     displayName: string;
+    avatarUrl?: string;
 }
 
 export default function Navbar() {
@@ -224,9 +225,13 @@ export default function Navbar() {
                                         href={`/${user.username}`}
                                         className="flex items-center gap-2 text-sm text-white hover:text-orange-400 transition-colors"
                                     >
-                                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
-                                            {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
-                                        </div>
+                                        {user.avatarUrl ? (
+                                            <img src={user.avatarUrl} alt="" className="w-7 h-7 rounded-lg object-cover" />
+                                        ) : (
+                                            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
+                                                {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
+                                            </div>
+                                        )}
                                         <span className="font-medium">{user.displayName || user.username}</span>
                                     </Link>
                                     <button
@@ -303,9 +308,13 @@ export default function Navbar() {
                         {user ? (
                             <>
                                 <div className="flex items-center gap-2 py-2">
-                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
-                                        {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
-                                    </div>
+                                    {user.avatarUrl ? (
+                                        <img src={user.avatarUrl} alt="" className="w-7 h-7 rounded-lg object-cover" />
+                                    ) : (
+                                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-xs">
+                                            {user.displayName?.[0]?.toUpperCase() || user.username[0].toUpperCase()}
+                                        </div>
+                                    )}
                                     <span className="text-sm text-white">{user.displayName || user.username}</span>
                                 </div>
                                 <Link href="/dashboard" className="block text-sm text-[var(--kit-text-muted)] hover:text-white">Dashboard</Link>
