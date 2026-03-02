@@ -36,7 +36,7 @@ const DEFAULT_MODELS: Record<Provider, string> = {
     openrouter: "google/gemini-2.5-flash",
 };
 
-const GOOGLE_FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"];
+const GOOGLE_FALLBACK_MODELS = ["gemini-2.0-flash"];
 
 // Tool definitions for model function/tool calling
 const TOOLS: ToolDefinition[] = [
@@ -462,7 +462,30 @@ async function runTool(
         });
 
         const toolData = await toolResponse.json();
-        const result = toolData?.result ?? toolData?.error ?? "Done";
+        let result = toolData?.result ?? toolData?.error ?? "Done";
+
+        // Empty repos may not have a branch yet; normalize this into an empty listing/status.
+        if (toolName === "list_files" && typeof result === "object" && result && (result as any).error === "Branch not found") {
+            result = {
+                entries: [],
+                path: "",
+                branch: "main",
+                empty: true,
+                message: "Repository has no commits yet.",
+            };
+        }
+        if (toolName === "status" && typeof result === "object" && result && (result as any).error === "Branch not found") {
+            result = {
+                branch: "main",
+                head: "none",
+                status: "clean",
+                staged: 0,
+                unstaged: 0,
+                untracked: 0,
+                trackedFiles: 0,
+                latestCommit: null,
+            };
+        }
         return typeof result === "string" ? result : JSON.stringify(result);
     } catch (error: any) {
         return `Error: ${error.message}`;
