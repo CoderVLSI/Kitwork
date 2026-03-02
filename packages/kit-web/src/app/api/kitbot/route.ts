@@ -222,6 +222,109 @@ function stringValue(value: unknown): string {
     return typeof value === "string" ? value : "";
 }
 
+type DirectToolPlan = {
+    toolName: string;
+    params: Record<string, unknown>;
+};
+
+function inferDirectToolPlan(message: string): DirectToolPlan | null {
+    const text = message.toLowerCase().trim();
+
+    const asksRepoContents =
+        /what.*repo.*(have|contains|inside)/i.test(text) ||
+        /what.*in.*repo/i.test(text) ||
+        /list.*files/i.test(text) ||
+        /show.*files/i.test(text) ||
+        /repo.*files/i.test(text);
+
+    if (asksRepoContents) {
+        return { toolName: "list_files", params: {} };
+    }
+
+    if (/repo status|is it initialized|initialized|empty repo|is it empty|check status/i.test(text)) {
+        return { toolName: "status", params: {} };
+    }
+
+    const asksAddPythonFile =
+        /((add|create|make).*(python|\.py).*(file|script))/i.test(text) ||
+        /((python|\.py).*(file|script).*(add|create|make))/i.test(text);
+
+    if (asksAddPythonFile) {
+        const explicitPathMatch = message.match(/([a-zA-Z0-9_./-]+\.py)\b/);
+        const path = explicitPathMatch?.[1] || "main.py";
+        const content = [
+            "def main():",
+            "    print(\"Hello from Kitwork!\")",
+            "",
+            "",
+            "if __name__ == \"__main__\":",
+            "    main()",
+            "",
+        ].join("\n");
+
+        return {
+            toolName: "write_file",
+            params: {
+                path,
+                content,
+                message: `Add ${path}`,
+            },
+        };
+    }
+
+    return null;
+}
+
+function formatDirectToolResponse(toolName: string, toolResult: string): string {
+    const parsed = safeParseObject(toolResult);
+    const error = stringValue(parsed.error);
+    if (error) return `Tool error (${toolName}): ${error}`;
+
+    if (toolName === "list_files") {
+        const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+        if (entries.length === 0) {
+            return "Repository looks empty on the current branch.";
+        }
+
+        const top = entries.slice(0, 12).map((entry: any) => {
+            const prefix = entry?.type === "tree" ? "[dir]" : "[file]";
+            return `${prefix} ${entry?.name || "unknown"}`;
+        });
+        const suffix = entries.length > 12 ? `\n...and ${entries.length - 12} more.` : "";
+        return `Here is what the repo has:\n${top.join("\n")}${suffix}`;
+    }
+
+    if (toolName === "status") {
+        const branch = stringValue(parsed.branch) || "main";
+        const head = stringValue(parsed.head) || "unknown";
+        const status = stringValue(parsed.status) || "unknown";
+        const trackedFiles = Number.isFinite(Number(parsed.trackedFiles)) ? Number(parsed.trackedFiles) : 0;
+        return `Repo status: branch ${branch} @ ${head}, ${trackedFiles} tracked files, working tree ${status}.`;
+    }
+
+    if (toolName === "write_file") {
+        const success = Boolean(parsed.success);
+        const message = stringValue(parsed.message);
+        const hash = stringValue(parsed.hash);
+        if (!success) return message || "Could not create file.";
+        return `${message || "File created and committed."}${hash ? ` (commit ${hash.slice(0, 8)})` : ""}`;
+    }
+
+    if (Object.keys(parsed).length > 0) return JSON.stringify(parsed);
+    return toolResult || "Done.";
+}
+
+function normalizeToolParams(toolName: string, params: Record<string, unknown>): Record<string, unknown> {
+    if (toolName === "search") {
+        const filePattern = params.filePattern ?? params.file_pattern;
+        if (filePattern !== undefined) {
+            return { ...params, filePattern };
+        }
+    }
+
+    return params;
+}
+
 function buildSystemInstruction(context: KitBotContext): string {
     let repoInfo = "";
 
@@ -295,12 +398,13 @@ async function runTool(
     userId?: string
 ): Promise<string> {
     try {
+        const normalizedParams = normalizeToolParams(toolName, params);
         const toolResponse = await fetch(`${request.nextUrl.origin}/api/kitbot/tools`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 tool: toolName,
-                params,
+                params: normalizedParams,
                 username,
                 repoName,
                 userId,
@@ -467,9 +571,30 @@ export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as KitBotRequestBody;
         const message = stringValue(body.message).trim();
+        const context: KitBotContext = body.context || {};
+        const username = stringValue(body.username) || undefined;
+        const repoName = stringValue(body.repoName) || undefined;
+        const userId = stringValue(body.userId) || undefined;
 
         if (!message) {
             return NextResponse.json({ response: "Please enter a message." }, { status: 200 });
+        }
+
+        if (username && repoName) {
+            const directPlan = inferDirectToolPlan(message);
+            if (directPlan) {
+                const toolResult = await runTool(
+                    request,
+                    directPlan.toolName,
+                    directPlan.params,
+                    username,
+                    repoName,
+                    userId
+                );
+                return NextResponse.json({
+                    response: formatDirectToolResponse(directPlan.toolName, toolResult),
+                });
+            }
         }
 
         const provider = normalizeProvider(body.provider);
@@ -487,10 +612,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ response }, { status: 200 });
         }
 
-        const context: KitBotContext = body.context || {};
-        const username = stringValue(body.username) || undefined;
-        const repoName = stringValue(body.repoName) || undefined;
-        const userId = stringValue(body.userId) || undefined;
         const systemInstruction = buildSystemInstruction(context);
 
         if (provider === "openrouter") {
