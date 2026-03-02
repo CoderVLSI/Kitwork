@@ -27,6 +27,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     const userRepos = useQuery(api.repos.listByUser, { ownerUsername: username });
     const activities = useQuery(api.activities.getActivities, { username });
     const contributionData = useQuery(api.activities.getContributionData, { username });
+    const userStreak = useQuery(api.users.getStreak, profileUser ? { userId: profileUser.id as Id<"users"> } : "skip");
 
     // Crew data
     const crewCounts = useQuery(api.crew.getCounts,
@@ -130,6 +131,15 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                                     </svg>
                                     <span><strong className="text-white">{publicRepos.length}</strong> repos</span>
                                 </div>
+                                {userStreak && userStreak.currentStreak > 0 && (
+                                    <div className="flex items-center gap-1.5 text-[var(--kit-text-muted)]">
+                                        <span className={userStreak.currentStreak >= 7 ? "text-orange-400" : userStreak.currentStreak >= 3 ? "text-yellow-400" : ""}>🔥</span>
+                                        <span><strong className={userStreak.currentStreak >= 7 ? "text-orange-400" : userStreak.currentStreak >= 3 ? "text-yellow-400" : "text-white"}>{userStreak.currentStreak}</strong> day streak</span>
+                                        {userStreak.longestStreak > userStreak.currentStreak && (
+                                            <span className="text-xs">(best: {userStreak.longestStreak})</span>
+                                        )}
+                                    </div>
+                                )}
                                 {crewCounts && (
                                     <>
                                         <div className="flex items-center gap-1.5 text-[var(--kit-text-muted)]">

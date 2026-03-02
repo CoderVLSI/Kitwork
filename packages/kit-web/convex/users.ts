@@ -398,3 +398,103 @@ export const touchKitKey = mutation({
         await ctx.db.patch(args.keyId, { lastUsedAt: Date.now() });
     },
 });
+
+// ─── Streaks ───
+
+/**
+ * Get user streak info
+ */
+export const getStreak = query({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        const streak = await ctx.db
+            .query("streaks")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .first();
+
+        if (!streak) {
+            return { currentStreak: 0, longestStreak: 0, totalContributions: 0, lastActiveDate: null };
+        }
+
+        return {
+            currentStreak: streak.currentStreak,
+            longestStreak: streak.longestStreak,
+            totalContributions: streak.totalContributions,
+            lastActiveDate: streak.lastActiveDate,
+        };
+    },
+});
+
+/**
+ * Update streak when user makes a commit
+ * Called from createFile and other commit operations
+ */
+export const updateStreak = mutation({
+    args: { userId: v.id("users") },
+    handler: async (ctx, args) => {
+        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
+        const existing = await ctx.db
+            .query("streaks")
+            .withIndex("by_user", (q) => q.eq("userId", args.userId))
+            .first();
+
+        if (!existing) {
+            // First streak entry
+            await ctx.db.insert("streaks", {
+                userId: args.userId,
+                currentStreak: 1,
+                longestStreak: 1,
+                lastActiveDate: today,
+                totalContributions: 1,
+            });
+            return { currentStreak: 1, longestStreak: 1, totalContributions: 1 };
+        }
+
+        // Check if last active was today
+        if (existing.lastActiveDate === today) {
+            // Same day - just increment total
+            const updated = await ctx.db.patch(existing._id, {
+                totalContributions: existing.totalContributions + 1,
+            });
+            return {
+                currentStreak: existing.currentStreak,
+                longestStreak: existing.longestStreak,
+                totalContributions: existing.totalContributions + 1,
+            };
+        }
+
+        // Check if last active was yesterday
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+        if (existing.lastActiveDate === yesterdayStr) {
+            // Continue streak
+            const newStreak = existing.currentStreak + 1;
+            await ctx.db.patch(existing._id, {
+                currentStreak: newStreak,
+                longestStreak: Math.max(existing.longestStreak, newStreak),
+                lastActiveDate: today,
+                totalContributions: existing.totalContributions + 1,
+            });
+            return {
+                currentStreak: newStreak,
+                longestStreak: Math.max(existing.longestStreak, newStreak),
+                totalContributions: existing.totalContributions + 1,
+            };
+        }
+
+        // Streak broken - start new one
+        await ctx.db.patch(existing._id, {
+            currentStreak: 1,
+            lastActiveDate: today,
+            totalContributions: existing.totalContributions + 1,
+        });
+        return {
+            currentStreak: 1,
+            longestStreak: existing.longestStreak,
+            totalContributions: existing.totalContributions + 1,
+        };
+    },
+});

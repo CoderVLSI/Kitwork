@@ -16,11 +16,12 @@ export default function ExplorePage() {
 
     const tabs = [
         { id: "trending" as const, label: "🔥 Trending", desc: "Most sparked" },
+        { id: "remixed" as const, label: "🔀 Most Remixed", desc: "Most forked" },
         { id: "active" as const, label: "⚡ Most Active", desc: "Recent commits" },
         { id: "newest" as const, label: "✨ Newest", desc: "Just created" },
     ];
 
-    const tabKeyMap = { trending: "trending", active: "mostActive", newest: "newest" } as const;
+    const tabKeyMap = { trending: "trending", remixed: "remixed", active: "mostActive", newest: "newest" } as const;
     const repos = exploreData ? exploreData[tabKeyMap[activeTab] as keyof typeof exploreData] : [];
     const filtered = search
         ? repos.filter((r: any) => r.name.toLowerCase().includes(search.toLowerCase()) || r.ownerUsername.toLowerCase().includes(search.toLowerCase()))
@@ -54,7 +55,9 @@ export default function ExplorePage() {
                         <div className="text-xs text-[var(--kit-text-muted)] mt-1">Spark & React</div>
                     </div>
                     <div className="glass rounded-xl p-5 text-center">
-                        <div className="text-2xl font-bold text-orange-400">🎵</div>
+                        <div className="text-2xl font-bold text-orange-400">
+                            <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                        </div>
                         <div className="text-xs text-[var(--kit-text-muted)] mt-1">Remix & Build</div>
                     </div>
                 </div>
@@ -115,7 +118,7 @@ export default function ExplorePage() {
                                             </h3>
                                             {repo.forkedFromName && (
                                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                                                    🎵 Remixed from {repo.forkedFromName}
+                                                    Remixed from {repo.forkedFromName}
                                                 </span>
                                             )}
                                         </div>
@@ -125,7 +128,12 @@ export default function ExplorePage() {
                                         <div className="flex items-center gap-4 text-xs text-[var(--kit-text-muted)]">
                                             <span className="flex items-center gap-1">⚡ {repo.sparkCount} sparks</span>
                                             <span className="flex items-center gap-1">📝 {repo.commitCount} commits</span>
-                                            {repo.remixCount > 0 && <span className="flex items-center gap-1">🎵 {repo.remixCount} remixes</span>}
+                                            {repo.remixCount > 0 && (
+                                                <span className="flex items-center gap-1">
+                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                                                    {repo.remixCount} remixes
+                                                </span>
+                                            )}
                                             <span className="flex items-center gap-1">🔀 {repo.defaultBranch}</span>
                                         </div>
                                     </div>

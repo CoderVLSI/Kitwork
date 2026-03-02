@@ -32,6 +32,11 @@ export default function DashboardPage() {
         user ? { ownerUsername: user.username } : "skip"
     );
 
+    const userStats = useQuery(
+        api.repos.getUserStats,
+        user ? { ownerUsername: user.username } : "skip"
+    );
+
     const createRepoMutation = useMutation(api.repos.create);
 
     const createRepo = async (e: React.FormEvent) => {
@@ -86,7 +91,7 @@ export default function DashboardPage() {
         <div className="min-h-screen pt-20 px-4">
             <div className="max-w-5xl mx-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center justify-between mb-6">
                     <div>
                         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
                         <p className="text-sm text-[var(--kit-text-muted)]">
@@ -108,6 +113,68 @@ export default function DashboardPage() {
                         </button>
                     </div>
                 </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div className="glass rounded-xl p-5 text-center">
+                        <div className="text-2xl font-bold text-white">{repos?.length || 0}</div>
+                        <div className="text-xs text-[var(--kit-text-muted)] mt-1">Repositories</div>
+                    </div>
+                    <div className="glass rounded-xl p-5 text-center">
+                        <div className="text-2xl font-bold text-indigo-400">{userStats?.totalRemixes || 0}</div>
+                        <div className="text-xs text-[var(--kit-text-muted)] mt-1 flex items-center justify-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                            Total Remixes
+                        </div>
+                    </div>
+                    <div className="glass rounded-xl p-5 text-center">
+                        <div className="text-2xl font-bold text-orange-400">{userStats?.totalCommits || 0}</div>
+                        <div className="text-xs text-[var(--kit-text-muted)] mt-1">Total Commits</div>
+                    </div>
+                    <div className="glass rounded-xl p-5 text-center">
+                        <div className="text-2xl font-bold text-green-400">{userStats?.remixedRepos?.length || 0}</div>
+                        <div className="text-xs text-[var(--kit-text-muted)] mt-1">Remixed Repos</div>
+                    </div>
+                </div>
+
+                {/* Remix Activity */}
+                {userStats && userStats.remixedRepos.length > 0 && (
+                    <div className="mb-8">
+                        <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                            <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                            Remix Activity
+                        </h2>
+                        <div className="space-y-2">
+                            {userStats.remixedRepos.map((repo: any) => (
+                                <Link key={repo._id} href={`/${user.username}/${repo.name}`} className="block glass rounded-xl p-4 hover:border-indigo-500/30 transition-all">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                                <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                                            </div>
+                                            <div>
+                                                <div className="text-sm font-medium text-white">{repo.name}</div>
+                                                <div className="text-xs text-[var(--kit-text-muted)]">{repo.remixCount} remix{repo.remixCount > 1 ? "es" : ""}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex -space-x-2">
+                                            {repo.remixedBy.slice(0, 3).map((remixer: any, i: number) => (
+                                                <Link key={i} href={`/${remixer.ownerUsername}`} onClick={(e) => e.stopPropagation()} className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-xs font-bold ring-2 ring-[var(--kit-bg)] hover:z-10 transition-all" title={remixer.ownerUsername}>
+                                                    {remixer.ownerUsername[0].toUpperCase()}
+                                                </Link>
+                                            ))}
+                                            {repo.remixedBy.length > 3 && (
+                                                <div className="w-8 h-8 rounded-full bg-[var(--kit-surface-2)] flex items-center justify-center text-[var(--kit-text-muted)] text-xs ring-2 ring-[var(--kit-bg)]">
+                                                    +{repo.remixedBy.length - 3}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* New Repo Modal */}
                 {showNew && (

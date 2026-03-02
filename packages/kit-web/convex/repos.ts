@@ -163,6 +163,57 @@ export const listByUser = query({
     },
 });
 
+// Get user dashboard stats - repos, remixes, commits, etc.
+export const getUserStats = query({
+    args: { ownerUsername: v.string() },
+    handler: async (ctx, args) => {
+        const user = await ctx.db
+            .query("users")
+            .withIndex("by_username", (q) => q.eq("username", args.ownerUsername))
+            .first();
+        if (!user) return null;
+
+        const repos = await ctx.db
+            .query("repos")
+            .withIndex("by_owner", (q) => q.eq("ownerId", user._id))
+            .collect();
+
+        let totalRemixes = 0;
+        const remixedRepos: any[] = [];
+        for (const repo of repos) {
+            const remixes = await ctx.db
+                .query("repos")
+                .withIndex("by_forked_from", (q) => q.eq("forkedFrom", repo._id))
+                .collect();
+            if (remixes.length > 0) {
+                totalRemixes += remixes.length;
+                remixedRepos.push({
+                    ...repo,
+                    remixCount: remixes.length,
+                    remixedBy: remixes.map(r => ({ ownerUsername: r.ownerUsername, name: r.name })),
+                });
+            }
+        }
+
+        // Get total commits across all repos
+        let totalCommits = 0;
+        for (const repo of repos) {
+            const commits = await ctx.db
+                .query("commits")
+                .withIndex("by_repo_branch", (q) => q.eq("repoId", repo._id))
+                .collect();
+            totalCommits += commits.length;
+        }
+
+        return {
+            totalRepos: repos.length,
+            totalRemixes,
+            totalCommits,
+            remixedRepos,
+        };
+    },
+});
+
 export const getTree = query({
     args: {
         ownerUsername: v.string(),
@@ -608,6 +659,36 @@ export const createFile = mutation({
             timestamp: now,
         });
 
+        // Update streak
+        const streaks = await ctx.db.query("streaks").withIndex("by_user", (q) => q.eq("userId", repo.ownerId)).first();
+        const today = new Date().toISOString().split("T")[0];
+        const totalContributions = streaks?.totalContributions || 0;
+
+        if (!streaks) {
+            await ctx.db.insert("streaks", {
+                userId: repo.ownerId,
+                currentStreak: 1,
+                longestStreak: 1,
+                lastActiveDate: today,
+                totalContributions: totalContributions + 1,
+            });
+        } else if (streaks.lastActiveDate !== today) {
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split("T")[0];
+            const newStreak = streaks.lastActiveDate === yesterdayStr ? streaks.currentStreak + 1 : 1;
+            await ctx.db.patch(streaks._id, {
+                currentStreak: newStreak,
+                longestStreak: Math.max(streaks.longestStreak, newStreak),
+                lastActiveDate: today,
+                totalContributions: streaks.totalContributions + 1,
+            });
+        } else {
+            await ctx.db.patch(streaks._id, {
+                totalContributions: streaks.totalContributions + 1,
+            });
+        }
+
         return { hash: commitHash, treeHash };
     },
 });
@@ -776,6 +857,7 @@ export const getExploreData = query({
 
         return {
             trending: [...reposWithStats].sort((a, b) => b.sparkCount - a.sparkCount),
+            remixed: [...reposWithStats].sort((a, b) => b.remixCount - a.remixCount),
             mostActive: [...reposWithStats].sort((a, b) => b.commitCount - a.commitCount),
             newest: [...reposWithStats].sort((a, b) => {
                 const aTime = a._creationTime || 0;

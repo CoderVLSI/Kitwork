@@ -490,7 +490,7 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
 
                                 {/* Quick Stats */}
                                 <div className="glass rounded-xl p-4">
-                                    <div className="grid grid-cols-2 gap-3 text-center">
+                                    <div className="grid grid-cols-3 gap-3 text-center">
                                         <div>
                                             <div className="text-lg font-bold text-white">{repoStats.commits}</div>
                                             <div className="text-xs text-[var(--kit-text-muted)]">Commits</div>
@@ -498,6 +498,10 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                         <div>
                                             <div className="text-lg font-bold text-white">{repoStats.fileCount}</div>
                                             <div className="text-xs text-[var(--kit-text-muted)]">Files</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-lg font-bold text-indigo-400">{remixCount || 0}</div>
+                                            <div className="text-xs text-[var(--kit-text-muted)]">Remixes</div>
                                         </div>
                                     </div>
                                 </div>
