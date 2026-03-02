@@ -16,23 +16,6 @@ const mergeCmd = require('../commands/merge');
 const remoteCmd = require('../commands/remote');
 const pushCmd = require('../commands/push');
 const pullCmd = require('../commands/pull');
-
-const { program } = require('commander');
-const chalk = require('chalk');
-
-// ─── Import commands ───
-const initCmd = require('../commands/init');
-const addCmd = require('../commands/add');
-const commitCmd = require('../commands/commit');
-const logCmd = require('../commands/log');
-const statusCmd = require('../commands/status');
-const branchCmd = require('../commands/branch');
-const checkoutCmd = require('../commands/checkout');
-const diffCmd = require('../commands/diff');
-const mergeCmd = require('../commands/merge');
-const remoteCmd = require('../commands/remote');
-const pushCmd = require('../commands/push');
-const pullCmd = require('../commands/pull');
 const cloneCmd = require('../commands/clone');
 const configCmd = require('../commands/config');
 const resetCmd = require('../commands/reset');
@@ -168,7 +151,7 @@ program
     .action(resetCmd);
 
 // ─── kit tag ───
-const tagCommand = program
+program
     .command('tag')
     .argument('[name]', 'Tag name')
     .argument('[commit]', 'Commit hash to tag (defaults to HEAD)')

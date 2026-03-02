@@ -22,7 +22,18 @@ export default function SettingsPage() {
     const [message, setMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
+    // Kit Keys state
+    const [keyName, setKeyName] = useState("");
+    const [newKey, setNewKey] = useState<string | null>(null);
+    const [keyCopied, setKeyCopied] = useState(false);
+    const [isCreatingKey, setIsCreatingKey] = useState(false);
+
     const updateProfileMutation = useMutation(api.users.updateProfile);
+    const createKitKeyMutation = useMutation(api.users.createKitKey);
+    const deleteKitKeyMutation = useMutation(api.users.deleteKitKey);
+
+    // Load Kit Keys
+    const keys = useQuery(api.users.listKitKeys, user ? { userId: user.id as Id<"users"> } : "skip");
 
     useEffect(() => {
         const stored = localStorage.getItem("kit_user");
@@ -79,6 +90,43 @@ export default function SettingsPage() {
         localStorage.removeItem("kit_user");
         window.dispatchEvent(new Event("auth-change"));
         window.location.href = "/";
+    };
+
+    const handleCreateKey = async () => {
+        if (!user || !keyName.trim()) return;
+
+        setIsCreatingKey(true);
+        setMessage("");
+
+        try {
+            const result = await createKitKeyMutation({
+                userId: user.id as Id<"users">,
+                name: keyName.trim(),
+            });
+
+            if (result && "rawToken" in result) {
+                setNewKey(result.rawToken);
+                setKeyName("");
+            }
+        } catch (err: any) {
+            setMessage(err.message || "Failed to create key");
+        } finally {
+            setIsCreatingKey(false);
+        }
+    };
+
+    const handleDeleteKey = async (keyId: Id<"kitKeys">) => {
+        if (!user) return;
+
+        if (!confirm("Are you sure? This will revoke the key immediately.")) return;
+
+        try {
+            await deleteKitKeyMutation({ keyId });
+            setMessage("Key revoked successfully!");
+            setTimeout(() => setMessage(""), 3000);
+        } catch (err: any) {
+            setMessage(err.message || "Failed to revoke key");
+        }
     };
 
     if (!user) {
@@ -257,6 +305,91 @@ export default function SettingsPage() {
                         <p className="text-xs text-[var(--kit-text-muted)] mt-2">
                             Your API key is stored locally in your browser and never sent to our servers.
                         </p>
+                    </div>
+                </div>
+
+                {/* Kit Keys */}
+                <div className="glass rounded-2xl p-6 mb-6">
+                    <h2 className="text-lg font-semibold text-white mb-2">🔑 Kit Keys</h2>
+                    <p className="text-sm text-[var(--kit-text-muted)] mb-6">
+                        CLI authentication tokens for pushing/pulling from the terminal.
+                    </p>
+
+                    {/* Keys list */}
+                    <div className="space-y-3 mb-6">
+                        {keys === undefined ? (
+                            <div className="text-sm text-[var(--kit-text-muted)]">Loading keys...</div>
+                        ) : keys.length === 0 ? (
+                            <div className="text-center py-8 border border-dashed border-[var(--kit-border)] rounded-xl">
+                                <div className="text-2xl mb-2">🔑</div>
+                                <p className="text-sm text-[var(--kit-text-muted)]">No keys yet. Create one to authenticate with the CLI.</p>
+                            </div>
+                        ) : (
+                            keys.map((key) => (
+                                <div key={key.id} className="flex items-center justify-between p-4 rounded-xl border border-[var(--kit-border)] bg-[var(--kit-surface)] group">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center">
+                                            <span className="text-lg">🔑</span>
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-medium text-white">{key.name}</div>
+                                            <div className="text-xs text-[var(--kit-text-muted)]">
+                                                Created: {new Date(key.createdAt).toLocaleDateString()} • Last used: {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : "Never"}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => handleDeleteKey(key.id)}
+                                        className="opacity-0 group-hover:opacity-100 text-xs px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all"
+                                    >
+                                        Revoke
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Create Key Form */}
+                    <div className="border-t border-[var(--kit-border)] pt-4">
+                        <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">Create New Key</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={keyName}
+                                onChange={(e) => setKeyName(e.target.value)}
+                                placeholder="e.g. My Laptop, CI/CD"
+                                className="flex-1 px-4 py-2.5 rounded-lg bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                            />
+                            <button
+                                onClick={handleCreateKey}
+                                disabled={!keyName.trim() || isCreatingKey}
+                                className="px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isCreatingKey ? "Creating..." : "Generate Key"}
+                            </button>
+                        </div>
+                        {newKey && (
+                            <div className="mt-4 p-4 rounded-xl bg-green-500/10 border border-green-500/30">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium text-green-400">✓ Key created! Save it now:</span>
+                                    <button
+                                        onClick={() => { setKeyCopied(true); navigator.clipboard.writeText(newKey); setTimeout(() => setKeyCopied(false), 2000); }}
+                                        className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                                    >
+                                        {keyCopied ? "Copied!" : "Copy"}
+                                    </button>
+                                </div>
+                                <code className="block text-xs bg-[#0a0a0f] px-3 py-2 rounded font-mono text-green-400 break-all select-all">
+                                    {newKey}
+                                </code>
+                                <button
+                                    onClick={() => setNewKey(null)}
+                                    className="mt-2 text-xs text-[var(--kit-text-muted)] hover:text-white"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
