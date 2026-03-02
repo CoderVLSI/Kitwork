@@ -1,6 +1,77 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+type TreeEntry = {
+    mode: string;
+    type: "tree" | "blob";
+    hash: string;
+    name: string;
+};
+
+function decodeObject(base64Data: string): string {
+    const raw = Buffer.from(base64Data, "base64").toString();
+    const nullIndex = raw.indexOf("\0");
+    return nullIndex === -1 ? raw : raw.slice(nullIndex + 1);
+}
+
+function parseTreeEntries(treeText: string): TreeEntry[] {
+    return treeText
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+            const [mode, type, hash, ...nameParts] = line.split(" ");
+            const name = nameParts.join(" ");
+            return {
+                mode,
+                type: (type === "tree" ? "tree" : "blob") as "tree" | "blob",
+                hash,
+                name,
+            };
+        });
+}
+
+async function getObjectByHash(ctx: any, repoId: any, hash: string) {
+    return ctx.db
+        .query("objects")
+        .withIndex("by_repo_hash", (q: any) => q.eq("repoId", repoId).eq("hash", hash))
+        .first();
+}
+
+async function getCommitTreeHash(ctx: any, repoId: any, commitHash: string): Promise<string | null> {
+    const commitObj = await getObjectByHash(ctx, repoId, commitHash);
+    if (!commitObj) return null;
+
+    const commitText = decodeObject(commitObj.data);
+    const treeMatch = commitText.match(/^tree ([0-9a-fA-F]+)/m);
+    return treeMatch ? treeMatch[1] : null;
+}
+
+async function buildBlobMap(
+    ctx: any,
+    repoId: any,
+    treeHash: string,
+    prefix = "",
+    out: Record<string, string> = {}
+): Promise<Record<string, string>> {
+    const treeObj = await getObjectByHash(ctx, repoId, treeHash);
+    if (!treeObj) return out;
+
+    const treeText = decodeObject(treeObj.data);
+    const entries = parseTreeEntries(treeText);
+
+    for (const entry of entries) {
+        const path = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.type === "tree") {
+            await buildBlobMap(ctx, repoId, entry.hash, path, out);
+        } else {
+            out[path] = entry.hash;
+        }
+    }
+
+    return out;
+}
+
 // List files in a directory
 export const listFiles = query({
     args: {
@@ -18,52 +89,74 @@ export const listFiles = query({
 
         if (!repo) return { error: "Repository not found" };
 
-        // Get the default branch's HEAD
         const branchRef = await ctx.db
             .query("branches")
             .withIndex("by_repo_name", (q) =>
                 q.eq("repoId", repo._id).eq("name", repo.defaultBranch || "main")
             )
             .first();
-
         if (!branchRef) return { error: "Branch not found" };
 
-        // Get the commit object
         const commitObj = await ctx.db
             .query("objects")
             .withIndex("by_repo_hash", (q) =>
                 q.eq("repoId", repo._id).eq("hash", branchRef.commitHash)
             )
             .first();
-
         if (!commitObj) return { error: "Commit not found" };
 
         const commitText = Buffer.from(commitObj.data, "base64").toString();
         const treeMatch = commitText.match(/^tree (\w+)/m);
         if (!treeMatch) return { error: "Invalid commit" };
 
-        // Get tree object
+        let currentTreeHash = treeMatch[1];
+        const pathParts = (args.path || "").split("/").filter(Boolean);
+
+        for (const part of pathParts) {
+            const treeObj = await ctx.db
+                .query("objects")
+                .withIndex("by_repo_hash", (q) =>
+                    q.eq("repoId", repo._id).eq("hash", currentTreeHash)
+                )
+                .first();
+            if (!treeObj) return { error: `Path not found: ${args.path}` };
+
+            const treeText = Buffer.from(treeObj.data, "base64").toString();
+            const lines = treeText.trim().split("\n").filter(Boolean);
+            const next = lines.find((line) => {
+                const [, type, , ...nameParts] = line.split(" ");
+                return type === "tree" && nameParts.join(" ") === part;
+            });
+
+            if (!next) return { error: `Directory not found: ${args.path}` };
+            const [, , hash] = next.split(" ");
+            currentTreeHash = hash;
+        }
+
         const treeObj = await ctx.db
             .query("objects")
             .withIndex("by_repo_hash", (q) =>
-                q.eq("repoId", repo._id).eq("hash", treeMatch[1])
+                q.eq("repoId", repo._id).eq("hash", currentTreeHash)
             )
             .first();
-
         if (!treeObj) return { error: "Tree not found" };
 
         const treeText = Buffer.from(treeObj.data, "base64").toString();
-        const lines = treeText.trim().split("\n").filter(Boolean);
+        const entries = treeText
+            .trim()
+            .split("\n")
+            .filter(Boolean)
+            .map((line) => {
+                const [mode, type, hash, ...nameParts] = line.split(" ");
+                const name = nameParts.join(" ");
+                return { name, type, mode, hash };
+            })
+            .sort((a, b) => {
+                if (a.type !== b.type) return a.type === "tree" ? -1 : 1;
+                return a.name.localeCompare(b.name);
+            });
 
-        // Parse tree entries
-        const entries: Array<{ name: string; type: string; mode: string; hash: string }> = [];
-        for (const line of lines) {
-            const [mode, type, hash, ...nameParts] = line.split(" ");
-            const name = nameParts.join(" ");
-            entries.push({ name, type, mode, hash });
-        }
-
-        return { entries };
+        return { entries, path: args.path || "", branch: repo.defaultBranch || "main" };
     },
 });
 
@@ -204,19 +297,18 @@ export const writeFile = mutation({
         if (!repo) return { error: "Repository not found" };
         if (repo.ownerId !== args.userId) return { error: "Not authorized" };
 
-        // Create a blob object
-        const contentBuffer = Buffer.from(args.content, "utf-8").toString("base64");
+        // Legacy fallback: tool route performs real commit flow via repos.createFile.
         const blobHash = `blob-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
         await ctx.db.insert("objects", {
             repoId: repo._id,
             hash: blobHash,
-            data: contentBuffer,
+            data: Buffer.from(args.content, "utf-8").toString("base64"),
         });
 
         return {
             success: true,
-            message: `File "${args.path}" created. Hash: ${blobHash.slice(0, 8)}`
+            hash: blobHash,
+            message: `Stored blob for ${args.path}. Use write_file tool endpoint for full commit metadata.`,
         };
     },
 });
@@ -239,35 +331,105 @@ export const search = query({
 
         if (!repo) return { error: "Repository not found" };
 
-        // Get all objects and search their content
-        const allObjects = await ctx.db
+        const branchRef = await ctx.db
+            .query("branches")
+            .withIndex("by_repo_name", (q) =>
+                q.eq("repoId", repo._id).eq("name", repo.defaultBranch || "main")
+            )
+            .first();
+        if (!branchRef) return { error: "Branch not found" };
+
+        const commitObj = await ctx.db
             .query("objects")
-            .withIndex("by_repo_hash", (q) => q.eq("repoId", repo._id))
-            .collect();
+            .withIndex("by_repo_hash", (q) =>
+                q.eq("repoId", repo._id).eq("hash", branchRef.commitHash)
+            )
+            .first();
+        if (!commitObj) return { error: "Commit not found" };
+
+        const commitText = Buffer.from(commitObj.data, "base64").toString();
+        const treeMatch = commitText.match(/^tree (\w+)/m);
+        if (!treeMatch) return { error: "Invalid commit" };
+
+        const filePattern = args.filePattern?.trim();
+        const matchesPattern = (path: string) => {
+            if (!filePattern) return true;
+            if (!filePattern.includes("*")) return path.includes(filePattern);
+
+            const escaped = filePattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+            const regex = new RegExp(`^${escaped}$`, "i");
+            return regex.test(path);
+        };
 
         const results: Array<{ path: string; line: string; lineNumber: number }> = [];
+        let truncated = false;
+        const limit = 200;
 
-        // Simple search - in production you'd want to track file paths in objects
-        for (const obj of allObjects) {
-            try {
-                const content = Buffer.from(obj.data, "base64").toString();
-                const lines = content.split("\n");
-
-                for (let i = 0; i < lines.length; i++) {
-                    if (lines[i].includes(args.pattern)) {
-                        results.push({
-                            path: `object-${obj.hash.slice(0, 8)}`,
-                            line: lines[i].trim(),
-                            lineNumber: i + 1,
-                        });
-                    }
-                }
-            } catch {
-                // Skip binary files
+        const walkTree = async (treeHash: string, prefix: string): Promise<void> => {
+            if (results.length >= limit) {
+                truncated = true;
+                return;
             }
-        }
 
-        return { results, count: results.length };
+            const treeObj = await ctx.db
+                .query("objects")
+                .withIndex("by_repo_hash", (q) =>
+                    q.eq("repoId", repo._id).eq("hash", treeHash)
+                )
+                .first();
+            if (!treeObj) return;
+
+            const treeText = Buffer.from(treeObj.data, "base64").toString();
+            const lines = treeText.trim().split("\n").filter(Boolean);
+
+            for (const entry of lines) {
+                if (results.length >= limit) {
+                    truncated = true;
+                    return;
+                }
+
+                const [, type, hash, ...nameParts] = entry.split(" ");
+                const name = nameParts.join(" ");
+                const path = prefix ? `${prefix}/${name}` : name;
+
+                if (type === "tree") {
+                    await walkTree(hash, path);
+                    continue;
+                }
+                if (type !== "blob" || !matchesPattern(path)) continue;
+
+                const blobObj = await ctx.db
+                    .query("objects")
+                    .withIndex("by_repo_hash", (q) =>
+                        q.eq("repoId", repo._id).eq("hash", hash)
+                    )
+                    .first();
+                if (!blobObj) continue;
+
+                try {
+                    const content = Buffer.from(blobObj.data, "base64").toString();
+                    const linesInFile = content.split("\n");
+                    for (let i = 0; i < linesInFile.length; i++) {
+                        if (linesInFile[i].includes(args.pattern)) {
+                            results.push({
+                                path,
+                                line: linesInFile[i].trim(),
+                                lineNumber: i + 1,
+                            });
+                            if (results.length >= limit) {
+                                truncated = true;
+                                return;
+                            }
+                        }
+                    }
+                } catch {
+                    // Ignore binary or malformed file contents.
+                }
+            }
+        };
+
+        await walkTree(treeMatch[1], "");
+        return { results, count: results.length, truncated };
     },
 });
 
@@ -290,39 +452,41 @@ export const commit = mutation({
         if (!repo) return { error: "Repository not found" };
         if (repo.ownerId !== args.userId) return { error: "Not authorized" };
 
-        // Get current HEAD
+        const branchName = repo.defaultBranch || "main";
         const branchRef = await ctx.db
             .query("branches")
             .withIndex("by_repo_name", (q) =>
-                q.eq("repoId", repo._id).eq("name", repo.defaultBranch || "main")
+                q.eq("repoId", repo._id).eq("name", branchName)
             )
             .first();
 
-        if (!branchRef) return { error: "Branch not found" };
+        if (!branchRef) {
+            return { error: "No commits yet. Use write_file first to create an initial commit." };
+        }
 
-        const timestamp = Math.floor(Date.now() / 1000);
-        const commitHash = `kit-${timestamp}-${Math.random().toString(36).slice(2, 10)}`;
-
-        await ctx.db.insert("commits", {
-            repoId: repo._id,
-            hash: commitHash,
-            treeHash: branchRef.commitHash,
-            parentHash: branchRef.commitHash,
-            author: "KitBot 🐱‍🏗️",
-            message: args.message,
-            timestamp,
-            branch: repo.defaultBranch || "main",
-            modifiedFiles: [],
-        });
+        const latestCommit = await ctx.db
+            .query("commits")
+            .withIndex("by_hash", (q) =>
+                q.eq("repoId", repo._id).eq("hash", branchRef.commitHash)
+            )
+            .first();
 
         return {
             success: true,
-            message: `Changes committed: "${args.message}"`,
-            hash: commitHash.slice(0, 12),
+            noOp: true,
+            branch: branchName,
+            head: branchRef.commitHash.slice(0, 8),
+            message: `No staged changes to commit with "${args.message}". Each write_file call already creates a commit.`,
+            latestCommit: latestCommit
+                ? {
+                    hash: latestCommit.hash.slice(0, 8),
+                    message: latestCommit.message,
+                    timestamp: latestCommit.timestamp,
+                }
+                : null,
         };
     },
 });
-
 // Create a new branch
 export const createBranch = mutation({
     args: {
@@ -340,17 +504,20 @@ export const createBranch = mutation({
             .first();
 
         if (!repo) return { error: "Repository not found" };
+        if (repo.ownerId !== args.userId) return { error: "Not authorized" };
+
+        const branchName = args.branch.trim();
+        if (!branchName) return { error: "Branch name is required" };
 
         const existing = await ctx.db
             .query("branches")
             .withIndex("by_repo_name", (q) =>
-                q.eq("repoId", repo._id).eq("name", args.branch)
+                q.eq("repoId", repo._id).eq("name", branchName)
             )
             .first();
 
         if (existing) return { error: "Branch already exists" };
 
-        // Get current HEAD to use as starting point
         const currentBranch = await ctx.db
             .query("branches")
             .withIndex("by_repo_name", (q) =>
@@ -358,18 +525,21 @@ export const createBranch = mutation({
             )
             .first();
 
-        if (!currentBranch) return { error: "Current branch not found" };
+        if (!currentBranch) return { error: "Cannot create branch before first commit" };
 
         await ctx.db.insert("branches", {
             repoId: repo._id,
-            name: args.branch,
+            name: branchName,
             commitHash: currentBranch.commitHash,
         });
 
-        return { success: true, message: `Branch "${args.branch}" created` };
+        return {
+            success: true,
+            message: `Branch "${branchName}" created from ${repo.defaultBranch || "main"}`,
+            head: currentBranch.commitHash.slice(0, 8),
+        };
     },
 });
-
 // Switch to a different branch
 export const switchBranch = mutation({
     args: {
@@ -387,24 +557,32 @@ export const switchBranch = mutation({
             .first();
 
         if (!repo) return { error: "Repository not found" };
+        if (repo.ownerId !== args.userId) return { error: "Not authorized" };
+
+        const branchName = args.branch.trim();
+        if (!branchName) return { error: "Branch name is required" };
 
         const branch = await ctx.db
             .query("branches")
             .withIndex("by_repo_name", (q) =>
-                q.eq("repoId", repo._id).eq("name", args.branch)
+                q.eq("repoId", repo._id).eq("name", branchName)
             )
             .first();
 
         if (!branch) return { error: "Branch not found" };
 
+        if (repo.defaultBranch !== branchName) {
+            await ctx.db.patch(repo._id, { defaultBranch: branchName });
+        }
+
         return {
             success: true,
-            message: `Switched to branch "${args.branch}"`,
+            message: `Switched to branch "${branchName}"`,
+            branch: branchName,
             head: branch.commitHash.slice(0, 8),
         };
     },
 });
-
 // Get commit log
 export const getLog = query({
     args: {
@@ -455,24 +633,59 @@ export const getStatus = query({
 
         if (!repo) return { error: "Repository not found" };
 
+        const branchName = repo.defaultBranch || "main";
         const branch = await ctx.db
             .query("branches")
             .withIndex("by_repo_name", (q) =>
-                q.eq("repoId", repo._id).eq("name", repo.defaultBranch || "main")
+                q.eq("repoId", repo._id).eq("name", branchName)
             )
             .first();
 
+        if (!branch) {
+            return {
+                branch: branchName,
+                head: "none",
+                status: "clean",
+                staged: 0,
+                unstaged: 0,
+                untracked: 0,
+                trackedFiles: 0,
+                latestCommit: null,
+            };
+        }
+
+        const latestCommit = await ctx.db
+            .query("commits")
+            .withIndex("by_hash", (q) =>
+                q.eq("repoId", repo._id).eq("hash", branch.commitHash)
+            )
+            .first();
+
+        const treeHash = latestCommit?.treeHash || await getCommitTreeHash(ctx, repo._id, branch.commitHash);
+        const trackedFiles = treeHash
+            ? Object.keys(await buildBlobMap(ctx, repo._id, treeHash)).length
+            : 0;
+
         return {
-            branch: branch?.name || "main",
-            head: branch?.commitHash.slice(0, 8) || "unknown",
+            branch: branch.name || branchName,
+            head: branch.commitHash.slice(0, 8),
             status: "clean",
             staged: 0,
             unstaged: 0,
             untracked: 0,
+            trackedFiles,
+            latestCommit: latestCommit
+                ? {
+                    hash: latestCommit.hash.slice(0, 8),
+                    message: latestCommit.message,
+                    author: latestCommit.author,
+                    timestamp: latestCommit.timestamp,
+                    modifiedFiles: latestCommit.modifiedFiles || [],
+                }
+                : null,
         };
     },
 });
-
 // Get diff
 export const getDiff = query({
     args: {
@@ -490,19 +703,114 @@ export const getDiff = query({
 
         if (!repo) return { error: "Repository not found" };
 
-        // Get recent commits
+        const branchName = repo.defaultBranch || "main";
         const commits = await ctx.db
             .query("commits")
-            .withIndex("by_repo_branch", (q) => q.eq("repoId", repo._id))
-            .take(2);
+            .withIndex("by_repo_branch", (q) =>
+                q.eq("repoId", repo._id).eq("branch", branchName)
+            )
+            .collect();
 
-        if (commits.length < 2) {
-            return { diff: "No changes to show", hasChanges: false };
+        if (commits.length === 0) {
+            return { diff: "No commits found for this branch", hasChanges: false };
         }
 
+        const sorted = commits.sort((a, b) => b.timestamp - a.timestamp);
+        const latest = sorted[0];
+        const previous = sorted[1];
+
+        const latestTreeHash = latest.treeHash || await getCommitTreeHash(ctx, repo._id, latest.hash);
+        if (!latestTreeHash) {
+            return { diff: "Unable to load latest tree", hasChanges: false };
+        }
+
+        const latestFiles = await buildBlobMap(ctx, repo._id, latestTreeHash);
+        const previousTreeHash = previous
+            ? (previous.treeHash || await getCommitTreeHash(ctx, repo._id, previous.hash))
+            : null;
+        const previousFiles = previousTreeHash
+            ? await buildBlobMap(ctx, repo._id, previousTreeHash)
+            : {};
+
+        const pathFilter = args.path?.trim();
+        const includePath = (filePath: string) => (
+            !pathFilter || filePath === pathFilter || filePath.startsWith(`${pathFilter}/`)
+        );
+
+        const added: string[] = [];
+        const removed: string[] = [];
+        const modified: string[] = [];
+
+        for (const [filePath, hash] of Object.entries(latestFiles)) {
+            if (!includePath(filePath)) continue;
+            if (!(filePath in previousFiles)) {
+                added.push(filePath);
+            } else if (previousFiles[filePath] !== hash) {
+                modified.push(filePath);
+            }
+        }
+
+        for (const filePath of Object.keys(previousFiles)) {
+            if (!includePath(filePath)) continue;
+            if (!(filePath in latestFiles)) {
+                removed.push(filePath);
+            }
+        }
+
+        added.sort();
+        removed.sort();
+        modified.sort();
+
+        const hasChanges = added.length + removed.length + modified.length > 0;
+        if (!hasChanges) {
+            return {
+                diff: pathFilter
+                    ? `No changes found for "${pathFilter}" between latest commits`
+                    : "No file-level changes between latest commits",
+                hasChanges: false,
+                summary: {
+                    branch: branchName,
+                    from: previous ? previous.hash.slice(0, 8) : "empty",
+                    to: latest.hash.slice(0, 8),
+                    added: 0,
+                    removed: 0,
+                    modified: 0,
+                },
+            };
+        }
+
+        const fromHash = previous ? previous.hash.slice(0, 8) : "empty";
+        const toHash = latest.hash.slice(0, 8);
+        const maxList = 25;
+        const formatGroup = (label: string, files: string[]) => (
+            files.length
+                ? `${label} (${files.length}):\n${files.slice(0, maxList).map((f) => `  - ${f}`).join("\n")}${files.length > maxList ? `\n  - ...and ${files.length - maxList} more` : ""}`
+                : ""
+        );
+
+        const sections = [
+            `Changes on ${branchName}: ${fromHash} -> ${toHash}`,
+            formatGroup("Added", added),
+            formatGroup("Modified", modified),
+            formatGroup("Removed", removed),
+        ].filter(Boolean);
+
         return {
-            diff: `Changes between commits:\n${commits[1].hash.slice(0, 8)} -> ${commits[0].hash.slice(0, 8)}\n\n${commits[0].message}`,
-            hasChanges: true,
+            diff: sections.join("\n\n"),
+            hasChanges,
+            summary: {
+                branch: branchName,
+                from: fromHash,
+                to: toHash,
+                added: added.length,
+                removed: removed.length,
+                modified: modified.length,
+            },
+            files: {
+                added: added.slice(0, 100),
+                removed: removed.slice(0, 100),
+                modified: modified.slice(0, 100),
+            },
         };
     },
 });

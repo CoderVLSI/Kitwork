@@ -135,6 +135,20 @@ const TOOLS: ToolDefinition[] = [
         },
     },
     {
+        name: "switch_branch",
+        description: "Switch the repository default branch context",
+        parameters: {
+            type: "object",
+            properties: {
+                branch: {
+                    type: "string",
+                    description: "Branch name to switch to",
+                },
+            },
+            required: ["branch"],
+        },
+    },
+    {
         name: "log",
         description: "Show commit history",
         parameters: {
@@ -250,6 +264,7 @@ You have access to Git tools through function calling. When users ask you to:
 - Search code: Use search tool with a pattern
 - Commit changes: Use commit tool with a message
 - Create branch: Use create_branch tool
+- Switch branch: Use switch_branch tool
 - Show history: Use log tool
 - Check status: Use status tool
 - Show diff: Use diff tool

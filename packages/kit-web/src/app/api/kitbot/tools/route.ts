@@ -95,14 +95,48 @@ export async function POST(request: NextRequest) {
                 break;
 
             case "write_file":
-                result = await fetchMutation(api.kitbot.writeFile, {
-                    username,
-                    repoName,
-                    path: params.path,
-                    content: params.content,
-                    message: params.message,
-                    userId,
-                });
+                if (!params?.path || !params?.content) {
+                    result = { error: "write_file requires path and content" };
+                    break;
+                }
+                if (!username || !repoName) {
+                    result = { error: "Missing repository context for write_file" };
+                    break;
+                }
+
+                {
+                    const repo = await fetchQuery(api.repos.get, {
+                        ownerUsername: username,
+                        name: repoName,
+                    });
+                    if (!repo) {
+                        result = { error: "Repository not found" };
+                        break;
+                    }
+
+                    const branch = repo.defaultBranch || "main";
+                    const me = userId
+                        ? await fetchQuery(api.users.me, { userId })
+                        : null;
+                    const author = me?.displayName || me?.username || "KitBot";
+                    const message = params.message || `Update ${params.path}`;
+
+                    const commitResult = await fetchMutation(api.repos.createFile, {
+                        ownerUsername: username,
+                        repoName,
+                        branch,
+                        path: params.path,
+                        content: params.content,
+                        message,
+                        author,
+                    });
+
+                    result = {
+                        success: true,
+                        message: `Committed ${params.path} on ${branch}`,
+                        hash: commitResult?.hash,
+                    };
+                }
                 break;
 
             case "search":
