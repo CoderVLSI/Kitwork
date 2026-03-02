@@ -17,12 +17,14 @@ interface Message {
     content: string;
 }
 
+type AiProvider = "google" | "openrouter";
+
 export default function KitBot({ repoName, username, currentFile, fileContent, repoContext, userId }: KitBotProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
         {
             role: "assistant",
-            content: "Hi! I'm KitBot 🐱‍🏗️! Powered by Google Gemini 3 Flash Preview, I can help you understand your code, explain functions, find bugs, or answer questions about this repository. What would you like to build today?",
+            content: "Hi! I'm KitBot 🐱‍🏗️! I can help you understand your code, explain functions, find bugs, or answer questions about this repository. What would you like to build today?",
         },
     ]);
     const [input, setInput] = useState("");
@@ -79,8 +81,13 @@ ${parsed.stats ? `Statistics:
                 repoInfo,
             };
 
-            // Get user's API key from localStorage
-            const apiKey = localStorage.getItem("kit_google_api_key") || "";
+            const storedProvider = localStorage.getItem("kit_ai_provider");
+            const provider: AiProvider = storedProvider === "openrouter" ? "openrouter" : "google";
+            const apiKey = provider === "openrouter"
+                ? (localStorage.getItem("kit_openrouter_api_key") || "")
+                : (localStorage.getItem("kit_google_api_key") || "");
+            const modelStorageKey = provider === "openrouter" ? "kit_ai_model_openrouter" : "kit_ai_model_google";
+            const selectedModel = localStorage.getItem(modelStorageKey) || undefined;
 
             // Call KitBot API endpoint
             const response = await fetch("/api/kitbot", {
@@ -90,6 +97,8 @@ ${parsed.stats ? `Statistics:
                     message: userMessage,
                     context,
                     apiKey,
+                    provider,
+                    model: selectedModel,
                     username,
                     repoName,
                     userId,
@@ -263,3 +272,4 @@ ${parsed.stats ? `Statistics:
         </>
     );
 }
+

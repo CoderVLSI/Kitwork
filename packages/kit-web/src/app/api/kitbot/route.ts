@@ -1,7 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Tool definitions for Gemini function calling
-const TOOLS = [
+type Provider = "google" | "openrouter";
+
+type ToolDefinition = {
+    name: string;
+    description: string;
+    parameters: {
+        type: "object";
+        properties: Record<string, { type: string; description: string }>;
+        required?: string[];
+    };
+};
+
+interface KitBotContext {
+    repo?: string;
+    currentFile?: string;
+    fileContent?: string;
+    repoInfo?: string;
+}
+
+interface KitBotRequestBody {
+    message?: string;
+    context?: KitBotContext;
+    apiKey?: string;
+    provider?: Provider;
+    model?: string;
+    username?: string;
+    repoName?: string;
+    userId?: string;
+}
+
+const DEFAULT_MODELS: Record<Provider, string> = {
+    google: "gemini-3-flash-preview",
+    openrouter: "google/gemini-2.5-flash",
+};
+
+// Tool definitions for model function/tool calling
+const TOOLS: ToolDefinition[] = [
     {
         name: "list_files",
         description: "List all files in the repository or a specific directory path",
@@ -133,29 +168,45 @@ const TOOLS = [
     },
 ];
 
-const MODEL_ID = "gemini-3-flash-preview"; // Gemini 3 Flash Preview
+const OPENAI_TOOLS = TOOLS.map((tool) => ({
+    type: "function" as const,
+    function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+    },
+}));
 
-export async function POST(request: NextRequest) {
-    try {
-        const { message, context, apiKey: userApiKey, username, repoName, userId } = await request.json();
+function normalizeProvider(provider: unknown): Provider {
+    return provider === "openrouter" ? "openrouter" : "google";
+}
 
-        // Use user's API key first, then fall back to environment variable
-        const apiKey = userApiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            return NextResponse.json(
-                {
-                    response: "KitBot requires a Google API key. Please add your API key in Settings to use KitBot.",
-                },
-                { status: 200 }
-            );
+function safeParseObject(value: unknown): Record<string, unknown> {
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+            return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : {};
+        } catch {
+            return {};
         }
+    }
+    if (value && typeof value === "object") {
+        return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+    }
+    return {};
+}
 
-        // Build the system instruction with context
-        let repoInfo = "";
-        if (context.repoInfo) {
-            try {
-                const parsed = JSON.parse(context.repoInfo);
-                repoInfo = `
+function stringValue(value: unknown): string {
+    return typeof value === "string" ? value : "";
+}
+
+function buildSystemInstruction(context: KitBotContext): string {
+    let repoInfo = "";
+
+    if (context.repoInfo) {
+        try {
+            const parsed = JSON.parse(context.repoInfo);
+            repoInfo = `
 
 Repository Information:
 - Description: ${parsed.description || "No description"}
@@ -170,15 +221,15 @@ ${parsed.stats ? `Statistics:
 - Total Files: ${parsed.stats.fileCount || 0}
 - Total Commits: ${parsed.stats.commitCount || 0}
 - Contributors: ${parsed.stats.contributors || 0}` : ""}`;
-            } catch {
-                repoInfo = context.repoInfo;
-            }
+        } catch {
+            repoInfo = context.repoInfo;
         }
+    }
 
-        const systemInstruction = `You are KitBot, a helpful AI coding assistant for Kitwork (a GitHub-like code hosting platform) with a construction cat mascot theme 🐱‍🏗️.
+    return `You are KitBot, a helpful AI coding assistant for Kitwork (a GitHub-like code hosting platform).
 
-Current repository: ${context.repo}
-Current file: ${context.currentFile}${repoInfo}
+Current repository: ${context.repo || "No repository selected"}
+Current file: ${context.currentFile || "none"}${repoInfo}
 
 ${context.fileContent ? `Currently viewing file content:\n\`\`\`\n${context.fileContent}\n\`\`\`` : ""}
 
@@ -200,146 +251,274 @@ Guidelines:
 - Use code examples when helpful
 - Explain technical concepts clearly
 - If you don't know something, say so
-- Format code with markdown
-- Be friendly and encouraging with a playful construction theme
-- Use occasional cat/construction themed language (let's build this, nail down the bug, hammer out this feature, etc.)`;
+- Format code with markdown`;
+}
 
-        // First call - potentially with function calls
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${apiKey}`, {
+async function runTool(
+    request: NextRequest,
+    toolName: string,
+    params: Record<string, unknown>,
+    username?: string,
+    repoName?: string,
+    userId?: string
+): Promise<string> {
+    try {
+        const toolResponse = await fetch(`${request.nextUrl.origin}/api/kitbot/tools`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+                tool: toolName,
+                params,
+                username,
+                repoName,
+                userId,
+            }),
+        });
+
+        const toolData = await toolResponse.json();
+        const result = toolData?.result ?? toolData?.error ?? "Done";
+        return typeof result === "string" ? result : JSON.stringify(result);
+    } catch (error: any) {
+        return `Error: ${error.message}`;
+    }
+}
+
+function extractGeminiText(responseData: any): string {
+    const parts = responseData?.candidates?.[0]?.content?.parts || [];
+    return parts
+        .filter((p: any) => typeof p?.text === "string")
+        .map((p: any) => p.text)
+        .join("");
+}
+
+function extractOpenRouterText(responseData: any): string {
+    const content = responseData?.choices?.[0]?.message?.content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+        return content
+            .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+            .join("");
+    }
+    return "";
+}
+
+async function callGemini(apiKey: string, model: string, body: Record<string, unknown>) {
+    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+    });
+}
+
+async function callOpenRouter(apiKey: string, body: Record<string, unknown>, fallbackOrigin: string) {
+    return fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || fallbackOrigin,
+            "X-Title": "Kitwork KitBot",
+        },
+        body: JSON.stringify(body),
+    });
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const body = (await request.json()) as KitBotRequestBody;
+        const message = stringValue(body.message).trim();
+
+        if (!message) {
+            return NextResponse.json({ response: "Please enter a message." }, { status: 200 });
+        }
+
+        const provider = normalizeProvider(body.provider);
+        const model = stringValue(body.model).trim() || DEFAULT_MODELS[provider];
+        const userApiKey = stringValue(body.apiKey).trim();
+
+        const apiKey = provider === "openrouter"
+            ? (userApiKey || process.env.OPENROUTER_API_KEY || "")
+            : (userApiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || "");
+
+        if (!apiKey) {
+            const response = provider === "openrouter"
+                ? "KitBot requires an OpenRouter API key. Add it in Settings to use OpenRouter models."
+                : "KitBot requires a Google API key. Add it in Settings to use Google Gemini models.";
+            return NextResponse.json({ response }, { status: 200 });
+        }
+
+        const context: KitBotContext = body.context || {};
+        const username = stringValue(body.username) || undefined;
+        const repoName = stringValue(body.repoName) || undefined;
+        const userId = stringValue(body.userId) || undefined;
+        const systemInstruction = buildSystemInstruction(context);
+
+        if (provider === "openrouter") {
+            const initialMessages = [
+                { role: "system", content: systemInstruction },
+                { role: "user", content: message },
+            ];
+
+            const firstResponse = await callOpenRouter(apiKey, {
+                model,
+                messages: initialMessages,
+                tools: OPENAI_TOOLS,
+                tool_choice: "auto",
+                temperature: 0.7,
+                max_tokens: 2000,
+            }, request.nextUrl.origin);
+
+            if (!firstResponse.ok) {
+                const error = await firstResponse.text();
+                console.error("OpenRouter API error:", error);
+                return NextResponse.json(
+                    { response: "Sorry, I could not reach the selected model provider right now." },
+                    { status: 200 }
+                );
+            }
+
+            const firstData = await firstResponse.json();
+            const assistantMessage = firstData?.choices?.[0]?.message;
+            const toolCalls = Array.isArray(assistantMessage?.tool_calls) ? assistantMessage.tool_calls : [];
+
+            if (toolCalls.length > 0) {
+                const toolMessages: Array<{ role: "tool"; tool_call_id: string; content: string }> = [];
+
+                for (let i = 0; i < toolCalls.length; i += 1) {
+                    const call = toolCalls[i];
+                    const toolName = stringValue(call?.function?.name);
+                    if (!toolName) continue;
+
+                    const args = safeParseObject(call?.function?.arguments);
+                    const toolResult = await runTool(request, toolName, args, username, repoName, userId);
+                    toolMessages.push({
+                        role: "tool",
+                        tool_call_id: stringValue(call?.id) || `tool_call_${i}`,
+                        content: toolResult,
+                    });
+                }
+
+                const secondResponse = await callOpenRouter(apiKey, {
+                    model,
+                    messages: [
+                        ...initialMessages,
+                        {
+                            role: "assistant",
+                            content: assistantMessage?.content || "",
+                            tool_calls: toolCalls,
+                        },
+                        ...toolMessages,
+                    ],
+                    tools: OPENAI_TOOLS,
+                    tool_choice: "auto",
+                    temperature: 0.7,
+                    max_tokens: 2000,
+                }, request.nextUrl.origin);
+
+                if (!secondResponse.ok) {
+                    const error = await secondResponse.text();
+                    console.error("OpenRouter follow-up error:", error);
+                    return NextResponse.json(
+                        { response: "I executed the tools but had trouble processing the results." },
+                        { status: 200 }
+                    );
+                }
+
+                const secondData = await secondResponse.json();
+                const followUpText = extractOpenRouterText(secondData);
+                return NextResponse.json({
+                    response: followUpText || "Tool executed successfully.",
+                });
+            }
+
+            const assistantText = extractOpenRouterText(firstData);
+            return NextResponse.json({ response: assistantText || "No response generated." });
+        }
+
+        const firstResponse = await callGemini(apiKey, model, {
+            contents: [
+                {
+                    parts: [
+                        { text: `${systemInstruction}\n\nUser: ${message}` },
+                    ],
+                },
+            ],
+            tools: TOOLS,
+            generationConfig: {
+                maxOutputTokens: 2000,
+                temperature: 0.7,
+            },
+        });
+
+        if (!firstResponse.ok) {
+            const error = await firstResponse.text();
+            console.error("Gemini API error:", error);
+            return NextResponse.json(
+                { response: "Sorry, I'm having trouble connecting to the model right now. Please try again later." },
+                { status: 200 }
+            );
+        }
+
+        const firstData = await firstResponse.json();
+        const parts = firstData?.candidates?.[0]?.content?.parts || [];
+        const functionCalls = parts.filter((p: any) => p?.functionCall);
+
+        if (functionCalls.length > 0) {
+            const toolResults: any[] = [];
+
+            for (const fc of functionCalls) {
+                const toolName = stringValue(fc?.functionCall?.name);
+                if (!toolName) continue;
+
+                const params = safeParseObject(fc?.functionCall?.args);
+                const toolResult = await runTool(request, toolName, params, username, repoName, userId);
+                toolResults.push({
+                    functionResponse: {
+                        name: toolName,
+                        response: { result: toolResult },
+                    },
+                });
+            }
+
+            const secondResponse = await callGemini(apiKey, model, {
                 contents: [
                     {
                         parts: [
-                            { text: `${systemInstruction}\n\nUser: ${message}` }
-                        ]
-                    }
+                            { text: `${systemInstruction}\n\nUser: ${message}` },
+                            ...parts,
+                            ...toolResults,
+                        ],
+                    },
                 ],
                 tools: TOOLS,
                 generationConfig: {
                     maxOutputTokens: 2000,
                     temperature: 0.7,
                 },
-            }),
-        });
-
-        if (!response.ok) {
-            const error = await response.text();
-            console.error("Gemini API error:", error);
-            return NextResponse.json(
-                {
-                    response: "Sorry, I'm having trouble connecting to my brain right now. Please try again later.",
-                },
-                { status: 200 }
-            );
-        }
-
-        const data = await response.json();
-        const candidate = data.candidates?.[0];
-        const parts = candidate?.content?.parts || [];
-
-        // Check if there are function calls
-        const functionCalls = parts.filter((p: any) => p.functionCall);
-        const textParts = parts.filter((p: any) => p.text);
-
-        if (functionCalls.length > 0) {
-            // Execute function calls
-            const toolResults: any[] = [];
-
-            for (const fc of functionCalls) {
-                const func = fc.functionCall;
-                const params = JSON.parse(JSON.stringify(func.args || {}));
-
-                try {
-                    // Call the tool API
-                    const toolResponse = await fetch(`${request.nextUrl.origin}/api/kitbot/tools`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            tool: func.name,
-                            params,
-                            username,
-                            repoName,
-                            userId,
-                        }),
-                    });
-
-                    const toolData = await toolResponse.json();
-                    toolResults.push({
-                        functionResponse: {
-                            name: func.name,
-                            response: toolData.result || toolData.error || "Done",
-                        },
-                    });
-                } catch (error: any) {
-                    toolResults.push({
-                        functionResponse: {
-                            name: func.name,
-                            response: `Error: ${error.message}`,
-                        },
-                    });
-                }
-            }
-
-            // Second call with tool results
-            const followUpResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${apiKey}`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    contents: [
-                        {
-                            parts: [
-                                { text: `${systemInstruction}\n\nUser: ${message}` },
-                                ...parts,
-                                ...toolResults,
-                            ],
-                        }
-                    ],
-                    tools: TOOLS,
-                    generationConfig: {
-                        maxOutputTokens: 2000,
-                        temperature: 0.7,
-                    },
-                }),
             });
 
-            if (!followUpResponse.ok) {
-                const error = await followUpResponse.text();
+            if (!secondResponse.ok) {
+                const error = await secondResponse.text();
                 console.error("Gemini follow-up error:", error);
                 return NextResponse.json(
-                    {
-                        response: "I executed the tools but had trouble processing the results.",
-                    },
+                    { response: "I executed the tools but had trouble processing the results." },
                     { status: 200 }
                 );
             }
 
-            const followUpData = await followUpResponse.json();
-            const followUpParts = followUpData.candidates?.[0]?.content?.parts || [];
-            const followUpText = followUpParts
-                .filter((p: any) => p.text)
-                .map((p: any) => p.text)
-                .join("");
-
-            return NextResponse.json({
-                response: followUpText || "Tool executed successfully!",
-            });
+            const secondData = await secondResponse.json();
+            const followUpText = extractGeminiText(secondData);
+            return NextResponse.json({ response: followUpText || "Tool executed successfully." });
         }
 
-        // No function calls, just return the text
-        const assistantMessage = textParts.map((p: any) => p.text).join("");
-        return NextResponse.json({ response: assistantMessage });
+        const assistantMessage = extractGeminiText(firstData);
+        return NextResponse.json({ response: assistantMessage || "No response generated." });
     } catch (error: any) {
         console.error("KitBot error:", error);
         return NextResponse.json(
-            {
-                response: "Something went wrong. Please try again.",
-            },
+            { response: "Something went wrong. Please try again." },
             { status: 200 }
         );
     }

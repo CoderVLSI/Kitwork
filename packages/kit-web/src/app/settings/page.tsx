@@ -15,10 +15,14 @@ interface User {
     avatarUrl?: string;
 }
 
+type AiProvider = "google" | "openrouter";
+
 export default function SettingsPage() {
     const [user, setUser] = useState<User | null>(null);
     const [form, setForm] = useState({ displayName: "", bio: "", avatarUrl: "" });
+    const [aiProvider, setAiProvider] = useState<AiProvider>("google");
     const [googleApiKey, setGoogleApiKey] = useState("");
+    const [openRouterApiKey, setOpenRouterApiKey] = useState("");
     const [message, setMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
@@ -48,8 +52,13 @@ export default function SettingsPage() {
             bio: parsed.bio || "",
             avatarUrl: parsed.avatarUrl || "",
         });
-        // Load Google API key from localStorage
+        const savedProvider = localStorage.getItem("kit_ai_provider");
+        if (savedProvider === "openrouter" || savedProvider === "google") {
+            setAiProvider(savedProvider);
+        }
+        // Load AI provider keys from localStorage
         setGoogleApiKey(localStorage.getItem("kit_google_api_key") || "");
+        setOpenRouterApiKey(localStorage.getItem("kit_openrouter_api_key") || "");
     }, []);
 
     const handleSave = async () => {
@@ -70,11 +79,17 @@ export default function SettingsPage() {
             localStorage.setItem("kit_user", JSON.stringify(updated));
             setUser(updated);
 
-            // Save Google API key
+            // Save AI provider settings and keys
+            localStorage.setItem("kit_ai_provider", aiProvider);
             if (googleApiKey) {
                 localStorage.setItem("kit_google_api_key", googleApiKey);
             } else {
                 localStorage.removeItem("kit_google_api_key");
+            }
+            if (openRouterApiKey) {
+                localStorage.setItem("kit_openrouter_api_key", openRouterApiKey);
+            } else {
+                localStorage.removeItem("kit_openrouter_api_key");
             }
 
             setMessage("Profile updated successfully!");
@@ -282,15 +297,40 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
-
                 {/* KitBot API Key */}
                 <div className="glass rounded-2xl p-6 mb-6">
-                    <h2 className="text-lg font-semibold text-white mb-2">KitBot 🐱‍🏗️</h2>
+                    <h2 className="text-lg font-semibold text-white mb-2">KitBot AI</h2>
                     <p className="text-sm text-[var(--kit-text-muted)] mb-4">
-                        Powered by <span className="text-orange-400 font-semibold">Google Gemini 3 Flash Preview</span>. Add your API key to enable KitBot AI assistant.
+                        Configure your AI provider. Keys are stored locally in your browser and never sent to our database.
                     </p>
 
-                    <div>
+                    <div className="mb-5">
+                        <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">Default AI Provider</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setAiProvider("google")}
+                                className={`px-3 py-2 rounded-lg border text-sm transition-colors ${aiProvider === "google"
+                                    ? "border-orange-500 bg-orange-500/10 text-white"
+                                    : "border-[var(--kit-border)] text-[var(--kit-text-muted)] hover:text-white hover:border-orange-500/40"
+                                    }`}
+                            >
+                                Google Gemini
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setAiProvider("openrouter")}
+                                className={`px-3 py-2 rounded-lg border text-sm transition-colors ${aiProvider === "openrouter"
+                                    ? "border-orange-500 bg-orange-500/10 text-white"
+                                    : "border-[var(--kit-border)] text-[var(--kit-text-muted)] hover:text-white hover:border-orange-500/40"
+                                    }`}
+                            >
+                                OpenRouter
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mb-5">
                         <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">Google API Key</label>
                         <input
                             type="password"
@@ -304,10 +344,29 @@ export default function SettingsPage() {
                             <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">
                                 Google AI Studio
                             </a>
-                            . Your API key is stored locally in your browser and never sent to our servers.
+                            .
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">OpenRouter API Key</label>
+                        <input
+                            type="password"
+                            value={openRouterApiKey}
+                            onChange={(e) => setOpenRouterApiKey(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500 transition-colors font-mono text-sm"
+                            placeholder="sk-or-v1-..."
+                        />
+                        <p className="text-xs text-[var(--kit-text-muted)] mt-2">
+                            Get your API key from{" "}
+                            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">
+                                OpenRouter
+                            </a>
+                            .
                         </p>
                     </div>
                 </div>
+
 
                 {/* Kit Keys */}
                 <div className="glass rounded-2xl p-6 mb-6">
@@ -432,3 +491,4 @@ export default function SettingsPage() {
         </div >
     );
 }
+

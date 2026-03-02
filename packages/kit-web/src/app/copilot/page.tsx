@@ -19,18 +19,41 @@ interface RepoItem {
     isPublic: boolean;
 }
 
-const MODELS = [
-    { id: "gemini-2.5-flash-preview-05-20", label: "Gemini 2.5 Flash", description: "Fast & efficient" },
-    { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro", description: "Most capable" },
-    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Balanced" },
-];
+type AiProvider = "google" | "openrouter";
+
+interface ModelOption {
+    id: string;
+    label: string;
+    description: string;
+}
+
+const FALLBACK_MODELS: Record<AiProvider, ModelOption[]> = {
+    google: [
+        { id: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview", description: "Fast and capable" },
+        { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro", description: "Most capable" },
+        { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Balanced" },
+    ],
+    openrouter: [
+        { id: "google/gemini-2.5-flash", label: "Google Gemini 2.5 Flash", description: "Fast general-purpose model" },
+        { id: "openai/gpt-4o-mini", label: "OpenAI GPT-4o Mini", description: "Cost-efficient reasoning" },
+        { id: "anthropic/claude-3.5-sonnet", label: "Anthropic Claude 3.5 Sonnet", description: "High quality coding" },
+    ],
+};
+
+function getModelStorageKey(provider: AiProvider) {
+    return provider === "openrouter" ? "kit_ai_model_openrouter" : "kit_ai_model_google";
+}
 
 export default function CopilotPage() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [selectedRepo, setSelectedRepo] = useState<RepoItem | null>(null);
-    const [selectedModel, setSelectedModel] = useState(MODELS[0]);
+    const [provider, setProvider] = useState<AiProvider>("google");
+    const [models, setModels] = useState<ModelOption[]>(FALLBACK_MODELS.google);
+    const [selectedModel, setSelectedModel] = useState<ModelOption | null>(FALLBACK_MODELS.google[0]);
+    const [isModelsLoading, setIsModelsLoading] = useState(false);
+    const [modelsError, setModelsError] = useState("");
     const [showModelMenu, setShowModelMenu] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [user, setUser] = useState<{ id: string; username: string } | null>(null);
@@ -42,6 +65,11 @@ export default function CopilotPage() {
     useEffect(() => {
         const stored = localStorage.getItem("kit_user");
         if (stored) setUser(JSON.parse(stored));
+
+        const savedProvider = localStorage.getItem("kit_ai_provider");
+        if (savedProvider === "openrouter" || savedProvider === "google") {
+            setProvider(savedProvider);
+        }
     }, []);
 
     // Fetch user's repos
@@ -60,6 +88,57 @@ export default function CopilotPage() {
         document.addEventListener("mousedown", handler);
         return () => document.removeEventListener("mousedown", handler);
     }, []);
+
+    // Sync provider from Settings and auto-fetch provider models
+    useEffect(() => {
+        const refreshModels = async () => {
+            setIsModelsLoading(true);
+            setModelsError("");
+
+            try {
+                const apiKey = provider === "openrouter"
+                    ? (localStorage.getItem("kit_openrouter_api_key") || "")
+                    : (localStorage.getItem("kit_google_api_key") || "");
+
+                const response = await fetch("/api/kitbot/models", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ provider, apiKey }),
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to load model list");
+                }
+
+                const data = await response.json();
+                const modelList: ModelOption[] = Array.isArray(data?.models) && data.models.length > 0
+                    ? data.models
+                    : FALLBACK_MODELS[provider];
+
+                setModels(modelList);
+                if (typeof data?.error === "string" && data.error) {
+                    setModelsError(data.error);
+                }
+
+                const savedModelId = localStorage.getItem(getModelStorageKey(provider));
+                const matched = modelList.find((model) => model.id === savedModelId);
+                const nextModel = matched || modelList[0] || null;
+                setSelectedModel(nextModel);
+                if (nextModel) {
+                    localStorage.setItem(getModelStorageKey(provider), nextModel.id);
+                }
+            } catch (error: any) {
+                const fallback = FALLBACK_MODELS[provider];
+                setModels(fallback);
+                setSelectedModel(fallback[0] || null);
+                setModelsError(error?.message || "Failed to load model list");
+            } finally {
+                setIsModelsLoading(false);
+            }
+        };
+
+        refreshModels();
+    }, [provider]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -83,7 +162,9 @@ export default function CopilotPage() {
         setIsLoading(true);
 
         try {
-            const apiKey = localStorage.getItem("kit_google_api_key") || "";
+            const apiKey = provider === "openrouter"
+                ? (localStorage.getItem("kit_openrouter_api_key") || "")
+                : (localStorage.getItem("kit_google_api_key") || "");
 
             const context: any = {
                 repo: selectedRepo ? `${selectedRepo.ownerUsername}/${selectedRepo.name}` : "No repository selected",
@@ -105,7 +186,8 @@ export default function CopilotPage() {
                     message: userMessage,
                     context,
                     apiKey,
-                    model: selectedModel.id,
+                    provider,
+                    model: selectedModel?.id,
                     username: selectedRepo?.ownerUsername,
                     repoName: selectedRepo?.name,
                     userId: user?.id,
@@ -133,6 +215,12 @@ export default function CopilotPage() {
 
     const handleNewChat = () => {
         setMessages([]);
+    };
+
+    const handleModelSelect = (model: ModelOption) => {
+        setSelectedModel(model);
+        localStorage.setItem(getModelStorageKey(provider), model.id);
+        setShowModelMenu(false);
     };
 
     const isEmptyChat = messages.length === 0;
@@ -260,6 +348,9 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-3">
                         <Image src="/copilot-icon.png" alt="Copilot" width={20} height={20} className="opacity-80" />
                         <span className="text-sm font-medium text-white">KitBot</span>
+                        <span className="text-[10px] uppercase tracking-wide text-orange-300 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/30">
+                            {provider === "openrouter" ? "OpenRouter" : "Google"}
+                        </span>
                         {selectedRepo && (
                             <span className="text-xs text-[var(--kit-text-muted)] px-2 py-0.5 rounded-full bg-white/5 border border-[var(--kit-border)]">
                                 {selectedRepo.ownerUsername}/{selectedRepo.name}
@@ -271,12 +362,13 @@ export default function CopilotPage() {
                     <div className="relative" ref={modelMenuRef}>
                         <button
                             onClick={() => setShowModelMenu(!showModelMenu)}
+                            disabled={isModelsLoading}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--kit-border)] bg-[var(--kit-surface)] hover:bg-[var(--kit-surface)] hover:border-orange-500/30 text-sm transition-all"
                         >
                             <svg className="w-3.5 h-3.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
-                            <span className="text-[var(--kit-text)]">{selectedModel.label}</span>
+                            <span className="text-[var(--kit-text)]">{selectedModel?.label || (isModelsLoading ? "Loading models..." : "Select Model")}</span>
                             <svg className={`w-3.5 h-3.5 text-[var(--kit-text-muted)] transition-transform ${showModelMenu ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
@@ -285,29 +377,39 @@ export default function CopilotPage() {
                         {showModelMenu && (
                             <div className="absolute right-0 top-full mt-2 w-64 rounded-xl bg-[#12121a] border border-[var(--kit-border)] shadow-2xl shadow-black/40 z-50 overflow-hidden">
                                 <div className="p-2 border-b border-[var(--kit-border)]">
-                                    <span className="text-[10px] uppercase tracking-wider text-[var(--kit-text-muted)] font-semibold px-2">Select Model</span>
+                                    <span className="text-[10px] uppercase tracking-wider text-[var(--kit-text-muted)] font-semibold px-2">
+                                        {provider === "openrouter" ? "OpenRouter Models" : "Google Models"}
+                                    </span>
                                 </div>
-                                {MODELS.map((model) => (
+                                {models.length === 0 && (
+                                    <div className="px-4 py-3 text-xs text-[var(--kit-text-muted)]">No models found.</div>
+                                )}
+                                {models.map((model) => (
                                     <button
                                         key={model.id}
-                                        onClick={() => { setSelectedModel(model); setShowModelMenu(false); }}
-                                        className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors ${selectedModel.id === model.id ? "bg-orange-500/10" : ""
+                                        onClick={() => handleModelSelect(model)}
+                                        className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors ${selectedModel?.id === model.id ? "bg-orange-500/10" : ""
                                             }`}
                                     >
-                                        <div className={`w-2 h-2 rounded-full ${selectedModel.id === model.id ? "bg-orange-400" : "bg-[var(--kit-border)]"}`} />
+                                        <div className={`w-2 h-2 rounded-full ${selectedModel?.id === model.id ? "bg-orange-400" : "bg-[var(--kit-border)]"}`} />
                                         <div className="flex-1 min-w-0">
-                                            <div className={`text-sm ${selectedModel.id === model.id ? "text-orange-300 font-medium" : "text-[var(--kit-text)]"}`}>
+                                            <div className={`text-sm ${selectedModel?.id === model.id ? "text-orange-300 font-medium" : "text-[var(--kit-text)]"}`}>
                                                 {model.label}
                                             </div>
                                             <div className="text-[10px] text-[var(--kit-text-muted)]">{model.description}</div>
                                         </div>
-                                        {selectedModel.id === model.id && (
+                                        {selectedModel?.id === model.id && (
                                             <svg className="w-4 h-4 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                             </svg>
                                         )}
                                     </button>
                                 ))}
+                                {modelsError && (
+                                    <div className="px-4 py-2 border-t border-[var(--kit-border)] text-[10px] text-amber-300">
+                                        {modelsError}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -362,7 +464,7 @@ export default function CopilotPage() {
                                             <div className="flex items-center gap-2 mb-2">
                                                 <Image src="/copilot-icon.png" alt="Copilot" width={16} height={16} />
                                                 <span className="text-xs text-orange-400 font-semibold">KitBot</span>
-                                                <span className="text-[10px] text-[var(--kit-text-muted)]">• {selectedModel.label}</span>
+                                                <span className="text-[10px] text-[var(--kit-text-muted)]">• {selectedModel?.label || "selected model"}</span>
                                             </div>
                                         )}
                                         <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
@@ -409,7 +511,7 @@ export default function CopilotPage() {
                             </button>
                         </form>
                         <p className="text-center text-xs text-[var(--kit-text-muted)] mt-2">
-                            KitBot uses AI ({selectedModel.label}). Check for mistakes.
+                            KitBot uses AI ({selectedModel?.label || "selected model"}). Check for mistakes.
                         </p>
                     </div>
                 </div>
@@ -417,3 +519,4 @@ export default function CopilotPage() {
         </div>
     );
 }
+
