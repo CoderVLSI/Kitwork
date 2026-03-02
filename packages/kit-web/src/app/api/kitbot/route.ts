@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
         // Get API key based on provider
         let apiKey: string | null = null;
         if (modelConfig.provider === "google") {
-            apiKey = userApiKey || localStorage.getItem("kit_google_api_key") || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+            apiKey = userApiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
             if (!apiKey) {
                 return NextResponse.json(
                     { response: "KitBot requires a Google API key for this model. Please add your API key in Settings." },
