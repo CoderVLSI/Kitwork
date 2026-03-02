@@ -17,17 +17,49 @@ interface Message {
     content: string;
 }
 
+// Available models
+const MODELS = {
+    gemini: [
+        { id: "gemini-2.5-flash-preview-05-20", name: "Gemini 2.5 Flash Preview", provider: "google" },
+        { id: "gemini-2.5-pro-preview-05-20", name: "Gemini 2.5 Pro Preview", provider: "google" },
+        { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash", provider: "google" },
+        { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro", provider: "google" },
+    ],
+    openrouter: [
+        { id: "openrouter:anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet", provider: "openrouter" },
+        { id: "openrouter:anthropic/claude-3.5-sonnet:beta", name: "Claude 3.5 Sonnet (Beta)", provider: "openrouter" },
+        { id: "openrouter:anthropic/claude-3-opus", name: "Claude 3 Opus", provider: "openrouter" },
+        { id: "openrouter:openai/gpt-4o", name: "GPT-4o", provider: "openrouter" },
+        { id: "openrouter:openai/gpt-4o-mini", name: "GPT-4o Mini", provider: "openrouter" },
+        { id: "openrouter:openai/o1-preview", name: "o1-preview", provider: "openrouter" },
+        { id: "openrouter:openai/o1-mini", name: "o1-mini", provider: "openrouter" },
+        { id: "openrouter:google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash (Free)", provider: "openrouter" },
+        { id: "openrouter:meta-llama/llama-3.1-70b-instruct", name: "Llama 3.1 70B", provider: "openrouter" },
+        { id: "openrouter:meta-llama/llama-3.2-90b-vision-instruct", name: "Llama 3.2 90B Vision", provider: "openrouter" },
+        { id: "openrouter:mistralai/mistral-large", name: "Mistral Large", provider: "openrouter" },
+        { id: "openrouter:deepseek/deepseek-chat", name: "DeepSeek Chat", provider: "openrouter" },
+    ],
+};
+
 export default function KitBot({ repoName, username, currentFile, fileContent, repoContext, userId }: KitBotProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
         {
             role: "assistant",
-            content: "Hi! I'm KitBot 🐱‍🏗️! Powered by Google Gemini 3 Flash Preview, I can help you understand your code, explain functions, find bugs, or answer questions about this repository. What would you like to build today?",
+            content: "Hi! I'm KitBot 🐱‍🏗️! Powered by Gemini 2.5 Flash Preview, I can help you understand your code, explain functions, find bugs, or answer questions about this repository. What would you like to build today?",
         },
     ]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash-preview-05-20");
+    const [showModelSelector, setShowModelSelector] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Load saved model preference
+    useEffect(() => {
+        const savedModel = localStorage.getItem("kitbot_model");
+        if (savedModel) setSelectedModel(savedModel);
+    }, []);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -36,6 +68,11 @@ export default function KitBot({ repoName, username, currentFile, fileContent, r
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    const getModelInfo = (modelId: string) => {
+        const allModels = [...MODELS.gemini, ...MODELS.openrouter];
+        return allModels.find(m => m.id === modelId);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -79,8 +116,14 @@ ${parsed.stats ? `Statistics:
                 repoInfo,
             };
 
-            // Get user's API key from localStorage
-            const apiKey = localStorage.getItem("kit_google_api_key") || "";
+            // Get API key based on model provider
+            const modelInfo = getModelInfo(selectedModel);
+            let apiKey = "";
+            if (modelInfo?.provider === "google") {
+                apiKey = localStorage.getItem("kit_google_api_key") || "";
+            } else if (modelInfo?.provider === "openrouter") {
+                apiKey = localStorage.getItem("kit_openrouter_api_key") || "";
+            }
 
             // Call KitBot API endpoint
             const response = await fetch("/api/kitbot", {
@@ -93,6 +136,7 @@ ${parsed.stats ? `Statistics:
                     username,
                     repoName,
                     userId,
+                    model: selectedModel,
                 }),
             });
 
@@ -112,6 +156,12 @@ ${parsed.stats ? `Statistics:
         }
     };
 
+    const handleModelChange = (modelId: string) => {
+        setSelectedModel(modelId);
+        localStorage.setItem("kitbot_model", modelId);
+        setShowModelSelector(false);
+    };
+
     const suggestedQuestions = currentFile ? [
         "Explain this file",
         "What does this code do?",
@@ -123,6 +173,8 @@ ${parsed.stats ? `Statistics:
         "How do I get started?",
         "What tech stack is used?",
     ];
+
+    const currentModelInfo = getModelInfo(selectedModel);
 
     return (
         <>
@@ -166,14 +218,62 @@ ${parsed.stats ? `Statistics:
                                 </div>
                             </div>
                         </div>
-                        <button
-                            onClick={() => setIsOpen(false)}
-                            className="text-[var(--kit-text-muted)] hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-all"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {/* Model Selector */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowModelSelector(!showModelSelector)}
+                                    className="text-xs px-2 py-1 rounded-lg bg-white/5 text-[var(--kit-text-muted)] hover:text-white hover:bg-white/10 transition-all flex items-center gap-1"
+                                    title="Change AI model"
+                                >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                                </button>
+                                {showModelSelector && (
+                                    <div className="absolute top-full right-0 mt-2 glass rounded-xl p-2 w-64 max-h-64 overflow-y-auto z-50 shadow-xl">
+                                        <div className="text-xs text-[var(--kit-text-muted)] px-2 py-1 font-semibold">Google Gemini</div>
+                                        {MODELS.gemini.map(m => (
+                                            <button
+                                                key={m.id}
+                                                onClick={() => handleModelChange(m.id)}
+                                                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs transition-all ${selectedModel === m.id ? "bg-orange-500/20 text-orange-300" : "text-[var(--kit-text-muted)] hover:text-white hover:bg-white/5"}`}
+                                            >
+                                                {m.name}
+                                            </button>
+                                        ))}
+                                        <div className="border-t border-[var(--kit-border)] my-1"></div>
+                                        <div className="text-xs text-[var(--kit-text-muted)] px-2 py-1 font-semibold">OpenRouter</div>
+                                        {MODELS.openrouter.map(m => (
+                                            <button
+                                                key={m.id}
+                                                onClick={() => handleModelChange(m.id)}
+                                                className={`w-full text-left px-2 py-1.5 rounded-lg text-xs transition-all ${selectedModel === m.id ? "bg-orange-500/20 text-orange-300" : "text-[var(--kit-text-muted)] hover:text-white hover:bg-white/5"}`}
+                                            >
+                                                {m.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                onClick={() => setIsOpen(false)}
+                                className="text-[var(--kit-text-muted)] hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-all"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Current Model Display */}
+                    <div className="px-4 py-2 border-b border-[var(--kit-border)] bg-white/5">
+                        <div className="flex items-center gap-2 text-xs">
+                            <span className="text-[var(--kit-text-muted)]">Model:</span>
+                            <span className="text-orange-400 font-medium">{currentModelInfo?.name || selectedModel}</span>
+                            {currentModelInfo?.provider === "openrouter" && (
+                                <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px]">OpenRouter</span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Messages */}
