@@ -19,7 +19,6 @@ export default function SettingsPage() {
     const [user, setUser] = useState<User | null>(null);
     const [form, setForm] = useState({ displayName: "", bio: "", avatarUrl: "" });
     const [googleApiKey, setGoogleApiKey] = useState("");
-    const [openRouterApiKey, setOpenRouterApiKey] = useState("");
     const [message, setMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
@@ -51,8 +50,6 @@ export default function SettingsPage() {
         });
         // Load Google API key from localStorage
         setGoogleApiKey(localStorage.getItem("kit_google_api_key") || "");
-        // Load OpenRouter API key from localStorage
-        setOpenRouterApiKey(localStorage.getItem("kit_openrouter_api_key") || "");
     }, []);
 
     const handleSave = async () => {
@@ -78,13 +75,6 @@ export default function SettingsPage() {
                 localStorage.setItem("kit_google_api_key", googleApiKey);
             } else {
                 localStorage.removeItem("kit_google_api_key");
-            }
-
-            // Save OpenRouter API key
-            if (openRouterApiKey) {
-                localStorage.setItem("kit_openrouter_api_key", openRouterApiKey);
-            } else {
-                localStorage.removeItem("kit_openrouter_api_key");
             }
 
             setMessage("Profile updated successfully!");
@@ -293,21 +283,15 @@ export default function SettingsPage() {
                     </div>
                 </div>
 
-                {/* KitBot API Keys */}
+                {/* KitBot API Key */}
                 <div className="glass rounded-2xl p-6 mb-6">
                     <h2 className="text-lg font-semibold text-white mb-2">KitBot 🐱‍🏗️</h2>
                     <p className="text-sm text-[var(--kit-text-muted)] mb-4">
-                        Add API keys to enable KitBot AI assistant with multiple model options.
+                        Powered by <span className="text-orange-400 font-semibold">Google Gemini 2.5 Flash Preview</span>. Add your API key to enable KitBot AI assistant.
                     </p>
 
-                    {/* Google API Key */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">
-                            <span className="flex items-center gap-2">
-                                Google Gemini API Key
-                                <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px]">For Gemini models</span>
-                            </span>
-                        </label>
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">Google API Key</label>
                         <input
                             type="password"
                             value={googleApiKey}
@@ -317,34 +301,10 @@ export default function SettingsPage() {
                         />
                         <p className="text-xs text-[var(--kit-text-muted)] mt-2">
                             Get your free API key from{" "}
-                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-orange-400 hover:text-orange-300">
                                 Google AI Studio
                             </a>
-                            . Stored locally in your browser.
-                        </p>
-                    </div>
-
-                    {/* OpenRouter API Key */}
-                    <div>
-                        <label className="block text-sm font-medium text-[var(--kit-text-muted)] mb-2">
-                            <span className="flex items-center gap-2">
-                                OpenRouter API Key
-                                <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-[10px]">For Claude, GPT-4, Llama, etc.</span>
-                            </span>
-                        </label>
-                        <input
-                            type="password"
-                            value={openRouterApiKey}
-                            onChange={(e) => setOpenRouterApiKey(e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl bg-[var(--kit-bg)] border border-[var(--kit-border)] text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-purple-500 transition-colors font-mono text-sm"
-                            placeholder="sk-or-v1-..."
-                        />
-                        <p className="text-xs text-[var(--kit-text-muted)] mt-2">
-                            Get your API key from{" "}
-                            <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:text-purple-300">
-                                OpenRouter
-                            </a>
-                            . Access to Claude, GPT-4, Llama, Mistral, and more. Stored locally in your browser.
+                            . Your API key is stored locally in your browser and never sent to our servers.
                         </p>
                     </div>
                 </div>
