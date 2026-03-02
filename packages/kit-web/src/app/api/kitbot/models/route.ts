@@ -6,6 +6,7 @@ interface ModelOption {
     id: string;
     label: string;
     description: string;
+    isFree?: boolean;
 }
 
 const FALLBACK_MODELS: Record<Provider, ModelOption[]> = {
@@ -15,9 +16,9 @@ const FALLBACK_MODELS: Record<Provider, ModelOption[]> = {
         { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Balanced speed and quality" },
     ],
     openrouter: [
-        { id: "google/gemini-2.5-flash", label: "Google Gemini 2.5 Flash", description: "Fast general-purpose model" },
-        { id: "openai/gpt-4o-mini", label: "OpenAI GPT-4o Mini", description: "Cost-efficient reasoning" },
-        { id: "anthropic/claude-3.5-sonnet", label: "Anthropic Claude 3.5 Sonnet", description: "High quality coding and analysis" },
+        { id: "google/gemini-2.5-flash", label: "Google Gemini 2.5 Flash", description: "Fast general-purpose model", isFree: false },
+        { id: "openai/gpt-4o-mini", label: "OpenAI GPT-4o Mini", description: "Cost-efficient reasoning", isFree: false },
+        { id: "anthropic/claude-3.5-sonnet", label: "Anthropic Claude 3.5 Sonnet", description: "High quality coding and analysis", isFree: false },
     ],
 };
 
@@ -47,6 +48,19 @@ function toLabel(id: string): string {
         .join(" ") || id;
 }
 
+function isGemini3FlashPreview(id: string): boolean {
+    const normalized = id.toLowerCase();
+    return normalized === "gemini-3-flash-preview" || normalized.startsWith("gemini-3-flash-preview-");
+}
+
+function isOpenRouterFreeModel(model: any, id: string): boolean {
+    if (id.toLowerCase().includes(":free")) return true;
+
+    const prompt = Number(model?.pricing?.prompt);
+    const completion = Number(model?.pricing?.completion);
+    return Number.isFinite(prompt) && Number.isFinite(completion) && prompt === 0 && completion === 0;
+}
+
 function mapGoogleModels(data: any): ModelOption[] {
     const models = Array.isArray(data?.models) ? data.models : [];
 
@@ -67,7 +81,12 @@ function mapGoogleModels(data: any): ModelOption[] {
                     : "Google Gemini model",
             };
         })
-        .filter((model: ModelOption | null): model is ModelOption => Boolean(model)));
+        .filter((model: ModelOption | null): model is ModelOption => Boolean(model)))
+        .sort((a, b) => {
+            if (isGemini3FlashPreview(a.id) && !isGemini3FlashPreview(b.id)) return -1;
+            if (!isGemini3FlashPreview(a.id) && isGemini3FlashPreview(b.id)) return 1;
+            return a.label.localeCompare(b.label);
+        });
 }
 
 function mapOpenRouterModels(data: any): ModelOption[] {
@@ -77,6 +96,7 @@ function mapOpenRouterModels(data: any): ModelOption[] {
         .map((model: any) => {
             const id = typeof model?.id === "string" ? model.id : "";
             if (!id) return null;
+            const isFree = isOpenRouterFreeModel(model, id);
 
             let description = "OpenRouter model";
             if (typeof model?.description === "string" && model.description.trim()) {
@@ -84,14 +104,23 @@ function mapOpenRouterModels(data: any): ModelOption[] {
             } else if (typeof model?.context_length === "number") {
                 description = `Context: ${model.context_length.toLocaleString()} tokens`;
             }
+            if (isFree && !description.toLowerCase().includes("free")) {
+                description = `Free • ${description}`;
+            }
 
             return {
                 id,
                 label: typeof model?.name === "string" && model.name.trim() ? model.name : toLabel(id),
                 description,
+                isFree,
             };
         })
-        .filter((model: ModelOption | null): model is ModelOption => Boolean(model)));
+        .filter((model: ModelOption | null): model is ModelOption => Boolean(model)))
+        .sort((a, b) => {
+            const freeDiff = Number(Boolean(b.isFree)) - Number(Boolean(a.isFree));
+            if (freeDiff !== 0) return freeDiff;
+            return a.label.localeCompare(b.label);
+        });
 }
 
 export async function POST(request: NextRequest) {

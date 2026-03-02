@@ -25,6 +25,7 @@ interface ModelOption {
     id: string;
     label: string;
     description: string;
+    isFree?: boolean;
 }
 
 const FALLBACK_MODELS: Record<AiProvider, ModelOption[]> = {
@@ -40,8 +41,41 @@ const FALLBACK_MODELS: Record<AiProvider, ModelOption[]> = {
     ],
 };
 
+const DEFAULT_GOOGLE_MODEL_ID = "gemini-3-flash-preview";
+const VISIBLE_MODEL_COUNT = 5;
+
 function getModelStorageKey(provider: AiProvider) {
     return provider === "openrouter" ? "kit_ai_model_openrouter" : "kit_ai_model_google";
+}
+
+function isGemini3FlashPreview(id: string) {
+    const normalized = id.toLowerCase();
+    return normalized === DEFAULT_GOOGLE_MODEL_ID || normalized.startsWith(`${DEFAULT_GOOGLE_MODEL_ID}-`);
+}
+
+function prioritizeModels(provider: AiProvider, list: ModelOption[]) {
+    const unique = list.filter((model, index, arr) => arr.findIndex((m) => m.id === model.id) === index);
+
+    if (provider === "openrouter") {
+        return [...unique].sort((a, b) => {
+            const freeDiff = Number(Boolean(b.isFree)) - Number(Boolean(a.isFree));
+            if (freeDiff !== 0) return freeDiff;
+            return a.label.localeCompare(b.label);
+        });
+    }
+
+    return [...unique].sort((a, b) => {
+        if (isGemini3FlashPreview(a.id) && !isGemini3FlashPreview(b.id)) return -1;
+        if (!isGemini3FlashPreview(a.id) && isGemini3FlashPreview(b.id)) return 1;
+        return a.label.localeCompare(b.label);
+    });
+}
+
+function pickDefaultModel(provider: AiProvider, list: ModelOption[]) {
+    if (provider === "openrouter") {
+        return list.find((model) => model.isFree) || list[0] || null;
+    }
+    return list.find((model) => isGemini3FlashPreview(model.id)) || list[0] || null;
 }
 
 export default function CopilotPage() {
@@ -55,6 +89,7 @@ export default function CopilotPage() {
     const [isModelsLoading, setIsModelsLoading] = useState(false);
     const [modelsError, setModelsError] = useState("");
     const [showModelMenu, setShowModelMenu] = useState(false);
+    const [showAllModels, setShowAllModels] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [user, setUser] = useState<{ id: string; username: string } | null>(null);
     const [repoSearch, setRepoSearch] = useState("");
@@ -91,6 +126,9 @@ export default function CopilotPage() {
 
     // Sync provider from Settings and auto-fetch provider models
     useEffect(() => {
+        setShowModelMenu(false);
+        setShowAllModels(false);
+
         const refreshModels = async () => {
             setIsModelsLoading(true);
             setModelsError("");
@@ -114,23 +152,24 @@ export default function CopilotPage() {
                 const modelList: ModelOption[] = Array.isArray(data?.models) && data.models.length > 0
                     ? data.models
                     : FALLBACK_MODELS[provider];
+                const prioritizedModels = prioritizeModels(provider, modelList);
 
-                setModels(modelList);
+                setModels(prioritizedModels);
                 if (typeof data?.error === "string" && data.error) {
                     setModelsError(data.error);
                 }
 
                 const savedModelId = localStorage.getItem(getModelStorageKey(provider));
-                const matched = modelList.find((model) => model.id === savedModelId);
-                const nextModel = matched || modelList[0] || null;
+                const matched = prioritizedModels.find((model) => model.id === savedModelId);
+                const nextModel = matched || pickDefaultModel(provider, prioritizedModels);
                 setSelectedModel(nextModel);
                 if (nextModel) {
                     localStorage.setItem(getModelStorageKey(provider), nextModel.id);
                 }
             } catch (error: any) {
-                const fallback = FALLBACK_MODELS[provider];
+                const fallback = prioritizeModels(provider, FALLBACK_MODELS[provider]);
                 setModels(fallback);
-                setSelectedModel(fallback[0] || null);
+                setSelectedModel(pickDefaultModel(provider, fallback));
                 setModelsError(error?.message || "Failed to load model list");
             } finally {
                 setIsModelsLoading(false);
@@ -223,6 +262,8 @@ export default function CopilotPage() {
         setShowModelMenu(false);
     };
 
+    const visibleModels = showAllModels ? models : models.slice(0, VISIBLE_MODEL_COUNT);
+    const hasMoreModels = models.length > VISIBLE_MODEL_COUNT;
     const isEmptyChat = messages.length === 0;
 
     return (
@@ -361,7 +402,13 @@ export default function CopilotPage() {
                     {/* Model Switcher */}
                     <div className="relative" ref={modelMenuRef}>
                         <button
-                            onClick={() => setShowModelMenu(!showModelMenu)}
+                            onClick={() =>
+                                setShowModelMenu((prev) => {
+                                    const next = !prev;
+                                    if (next) setShowAllModels(false);
+                                    return next;
+                                })
+                            }
                             disabled={isModelsLoading}
                             className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--kit-border)] bg-[var(--kit-surface)] hover:bg-[var(--kit-surface)] hover:border-orange-500/30 text-sm transition-all"
                         >
@@ -375,36 +422,56 @@ export default function CopilotPage() {
                         </button>
 
                         {showModelMenu && (
-                            <div className="absolute right-0 top-full mt-2 w-64 rounded-xl bg-[#12121a] border border-[var(--kit-border)] shadow-2xl shadow-black/40 z-50 overflow-hidden">
+                            <div className="absolute right-0 top-full mt-2 w-80 rounded-xl bg-[#12121a] border border-[var(--kit-border)] shadow-2xl shadow-black/40 z-50 overflow-hidden">
                                 <div className="p-2 border-b border-[var(--kit-border)]">
                                     <span className="text-[10px] uppercase tracking-wider text-[var(--kit-text-muted)] font-semibold px-2">
                                         {provider === "openrouter" ? "OpenRouter Models" : "Google Models"}
                                     </span>
                                 </div>
-                                {models.length === 0 && (
-                                    <div className="px-4 py-3 text-xs text-[var(--kit-text-muted)]">No models found.</div>
-                                )}
-                                {models.map((model) => (
-                                    <button
-                                        key={model.id}
-                                        onClick={() => handleModelSelect(model)}
-                                        className={`w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors ${selectedModel?.id === model.id ? "bg-orange-500/10" : ""
-                                            }`}
-                                    >
-                                        <div className={`w-2 h-2 rounded-full ${selectedModel?.id === model.id ? "bg-orange-400" : "bg-[var(--kit-border)]"}`} />
-                                        <div className="flex-1 min-w-0">
-                                            <div className={`text-sm ${selectedModel?.id === model.id ? "text-orange-300 font-medium" : "text-[var(--kit-text)]"}`}>
-                                                {model.label}
+                                <div className="max-h-80 overflow-y-auto py-1">
+                                    {models.length === 0 && (
+                                        <div className="px-4 py-3 text-xs text-[var(--kit-text-muted)]">No models found.</div>
+                                    )}
+                                    {visibleModels.map((model) => (
+                                        <button
+                                            key={model.id}
+                                            onClick={() => handleModelSelect(model)}
+                                            className={`w-full text-left px-4 py-2.5 flex items-start gap-3 hover:bg-white/5 transition-colors ${selectedModel?.id === model.id ? "bg-orange-500/10" : ""
+                                                }`}
+                                        >
+                                            <div className={`w-2 h-2 rounded-full mt-1.5 ${selectedModel?.id === model.id ? "bg-orange-400" : "bg-[var(--kit-border)]"}`} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`text-sm truncate ${selectedModel?.id === model.id ? "text-orange-300 font-medium" : "text-[var(--kit-text)]"}`}>
+                                                        {model.label}
+                                                    </div>
+                                                    {provider === "openrouter" && model.isFree && (
+                                                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                                            FREE
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-[10px] text-[var(--kit-text-muted)] truncate">{model.description}</div>
                                             </div>
-                                            <div className="text-[10px] text-[var(--kit-text-muted)]">{model.description}</div>
-                                        </div>
-                                        {selectedModel?.id === model.id && (
-                                            <svg className="w-4 h-4 text-orange-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        )}
-                                    </button>
-                                ))}
+                                            {selectedModel?.id === model.id && (
+                                                <svg className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                                {hasMoreModels && (
+                                    <div className="p-2 border-t border-[var(--kit-border)]">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowAllModels((prev) => !prev)}
+                                            className="w-full px-3 py-2 rounded-lg text-xs font-medium text-orange-300 bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 transition-colors"
+                                        >
+                                            {showAllModels ? "Show fewer options" : `Other options (${models.length - VISIBLE_MODEL_COUNT})`}
+                                        </button>
+                                    </div>
+                                )}
                                 {modelsError && (
                                     <div className="px-4 py-2 border-t border-[var(--kit-border)] text-[10px] text-amber-300">
                                         {modelsError}

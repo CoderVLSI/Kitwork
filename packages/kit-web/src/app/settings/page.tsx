@@ -25,6 +25,8 @@ export default function SettingsPage() {
     const [openRouterApiKey, setOpenRouterApiKey] = useState("");
     const [message, setMessage] = useState("");
     const [isSaving, setIsSaving] = useState(false);
+    const [isSavingAiKeys, setIsSavingAiKeys] = useState(false);
+    const [statusDialog, setStatusDialog] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
     // Kit Keys state
     const [keyName, setKeyName] = useState("");
@@ -107,6 +109,29 @@ export default function SettingsPage() {
         window.location.href = "/";
     };
 
+    const showStatusDialog = (type: "success" | "error", text: string) => {
+        setStatusDialog({ type, text });
+        setTimeout(() => setStatusDialog(null), 2500);
+    };
+
+    const handleSaveAiKeys = async () => {
+        setIsSavingAiKeys(true);
+        try {
+            localStorage.setItem("kit_ai_provider", aiProvider);
+            if (googleApiKey) localStorage.setItem("kit_google_api_key", googleApiKey);
+            else localStorage.removeItem("kit_google_api_key");
+
+            if (openRouterApiKey) localStorage.setItem("kit_openrouter_api_key", openRouterApiKey);
+            else localStorage.removeItem("kit_openrouter_api_key");
+
+            showStatusDialog("success", "Saved");
+        } catch {
+            showStatusDialog("error", "Failed to save");
+        } finally {
+            setIsSavingAiKeys(false);
+        }
+    };
+
     const handleCreateKey = async () => {
         if (!user || !keyName.trim()) return;
 
@@ -154,6 +179,18 @@ export default function SettingsPage() {
 
     return (
         <div className="min-h-screen pt-20 px-4">
+            {statusDialog && (
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50">
+                    <div
+                        className={`px-4 py-2 rounded-lg border text-sm font-medium shadow-lg ${statusDialog.type === "success"
+                            ? "bg-green-500/20 border-green-500/40 text-green-300"
+                            : "bg-red-500/20 border-red-500/40 text-red-300"
+                            }`}
+                    >
+                        {statusDialog.text}
+                    </div>
+                </div>
+            )}
             <div className="max-w-2xl mx-auto">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-8">
@@ -364,6 +401,17 @@ export default function SettingsPage() {
                             </a>
                             .
                         </p>
+                    </div>
+
+                    <div className="pt-4 mt-5 border-t border-[var(--kit-border)]">
+                        <button
+                            type="button"
+                            onClick={handleSaveAiKeys}
+                            disabled={isSavingAiKeys}
+                            className="w-full py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold transition-all disabled:opacity-50"
+                        >
+                            {isSavingAiKeys ? "Saving..." : "Save API Keys"}
+                        </button>
                     </div>
                 </div>
 
