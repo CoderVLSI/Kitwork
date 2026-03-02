@@ -304,8 +304,29 @@ function extractOpenRouterText(responseData: any): string {
     return "";
 }
 
+function extractApiErrorMessage(rawError: string): string {
+    try {
+        const parsed = JSON.parse(rawError);
+        if (typeof parsed?.error?.message === "string" && parsed.error.message.trim()) {
+            return parsed.error.message.trim();
+        }
+        if (typeof parsed?.message === "string" && parsed.message.trim()) {
+            return parsed.message.trim();
+        }
+        if (typeof parsed?.error === "string" && parsed.error.trim()) {
+            return parsed.error.trim();
+        }
+    } catch {
+        // Raw response is not JSON, return normalized text below.
+    }
+
+    const normalized = rawError.replace(/\s+/g, " ").trim();
+    if (!normalized) return "Unknown provider error.";
+    return normalized.length > 280 ? `${normalized.slice(0, 277)}...` : normalized;
+}
+
 function shouldRetryGeminiWithFallback(rawError: string): boolean {
-    const text = rawError.toLowerCase();
+    const text = extractApiErrorMessage(rawError).toLowerCase();
     return (
         text.includes("not found") ||
         text.includes("not supported") ||
@@ -317,21 +338,41 @@ function shouldRetryGeminiWithFallback(rawError: string): boolean {
 }
 
 function explainGeminiError(rawError: string, selectedModel: string): string {
-    const text = rawError.toLowerCase();
+    const detail = extractApiErrorMessage(rawError);
+    const text = detail.toLowerCase();
 
     if (text.includes("api key not valid") || text.includes("invalid api key") || text.includes("permission denied")) {
-        return "Google API key looks invalid or unauthorized. Re-save a valid key in Settings, then try again.";
+        return `Google API key looks invalid or unauthorized. (${detail})`;
     }
 
     if (text.includes("quota") || text.includes("rate limit") || text.includes("resource exhausted")) {
-        return "Google API quota/rate limit reached for this key. Try again later or switch to OpenRouter free models.";
+        return `Google API quota/rate limit reached for this key. (${detail})`;
     }
 
     if (text.includes("model") && (text.includes("not found") || text.includes("not supported") || text.includes("does not support"))) {
-        return `This key cannot use ${selectedModel}. Switch to Gemini 2.0 Flash or use OpenRouter free models.`;
+        return `This key cannot use ${selectedModel}. Switch to Gemini 2.0 Flash or use OpenRouter free models. (${detail})`;
     }
 
-    return "Sorry, I'm having trouble connecting to the model right now. Please try again later.";
+    return `Google API error: ${detail}`;
+}
+
+function explainOpenRouterError(rawError: string, selectedModel: string): string {
+    const detail = extractApiErrorMessage(rawError);
+    const text = detail.toLowerCase();
+
+    if (text.includes("invalid") && text.includes("key")) {
+        return `OpenRouter API key looks invalid. (${detail})`;
+    }
+
+    if (text.includes("quota") || text.includes("rate") || text.includes("credits")) {
+        return `OpenRouter quota/credits issue. (${detail})`;
+    }
+
+    if (text.includes("model") && (text.includes("not found") || text.includes("not available") || text.includes("does not exist"))) {
+        return `Selected model (${selectedModel}) is unavailable on OpenRouter. (${detail})`;
+    }
+
+    return `OpenRouter API error: ${detail}`;
 }
 
 async function runGeminiWithFallback(
@@ -441,7 +482,7 @@ export async function POST(request: NextRequest) {
                 const error = await firstResponse.text();
                 console.error("OpenRouter API error:", error);
                 return NextResponse.json(
-                    { response: "Sorry, I could not reach the selected model provider right now." },
+                    { response: explainOpenRouterError(error, model) },
                     { status: 200 }
                 );
             }
@@ -488,7 +529,7 @@ export async function POST(request: NextRequest) {
                     const error = await secondResponse.text();
                     console.error("OpenRouter follow-up error:", error);
                     return NextResponse.json(
-                        { response: "I executed the tools but had trouble processing the results." },
+                        { response: explainOpenRouterError(error, model) },
                         { status: 200 }
                     );
                 }
