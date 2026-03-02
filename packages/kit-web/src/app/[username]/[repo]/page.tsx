@@ -190,12 +190,14 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                             </div>
                             {/* Remix count - show to everyone like GitHub forks */}
                             {user && !isOwner ? (
-                                <button onClick={handleRemix} className="px-3 py-1.5 rounded-lg glass text-[var(--kit-text-muted)] hover:text-white text-sm font-medium transition-all flex items-center gap-1.5">
-                                    🎵 Remix {remixCount ? `(${remixCount})` : ""}
+                                <button onClick={handleRemix} className="px-3 py-1.5 rounded-lg glass text-[var(--kit-text-muted)] hover:text-white hover:bg-white/5 text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                                    Remix{remixCount ? ` ${remixCount}` : ""}
                                 </button>
                             ) : (
                                 <div className="px-3 py-1.5 rounded-lg glass text-[var(--kit-text-muted)] text-sm font-medium flex items-center gap-1.5">
-                                    🎵 Remix {remixCount ? `(${remixCount})` : ""}
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
+                                    Remix{remixCount ? ` ${remixCount}` : ""}
                                 </div>
                             )}
                             {isOwner && (
@@ -213,7 +215,7 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                         </div>
                     </div>
                     {repoInfo.description && <p className="text-sm text-[var(--kit-text-muted)] mt-1">{repoInfo.description}</p>}
-                    {repoInfo.forkedFromName && <p className="text-xs text-[var(--kit-text-muted)] mt-1">🎵 Remixed from <Link href={`/${repoInfo.forkedFromName}`} className="text-orange-400 hover:text-orange-300">{repoInfo.forkedFromName}</Link></p>}
+                    {repoInfo.forkedFromName && <p className="text-xs text-[var(--kit-text-muted)] mt-1">Remixed from <Link href={`/${repoInfo.forkedFromName}`} className="text-orange-400 hover:text-orange-300">{repoInfo.forkedFromName}</Link></p>}
                     {sparkData && sparkData.total > 0 && (
                         <div className="flex items-center gap-2 mt-2">
                             {sparkData.counts.map((c: { id: string; count: number }) => (
