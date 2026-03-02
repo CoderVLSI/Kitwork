@@ -54,11 +54,21 @@ function isGemini3FlashPreview(id: string) {
     return normalized === DEFAULT_GOOGLE_MODEL_ID || normalized.startsWith(`${DEFAULT_GOOGLE_MODEL_ID}-`);
 }
 
+function openRouterPriority(id: string) {
+    const normalized = id.toLowerCase();
+    if (normalized.includes("qwen")) return 0;
+    if (normalized.includes("gemma")) return 1;
+    if (normalized.includes("step")) return 2;
+    return 50;
+}
+
 function prioritizeModels(provider: AiProvider, list: ModelOption[]) {
     const unique = list.filter((model, index, arr) => arr.findIndex((m) => m.id === model.id) === index);
 
     if (provider === "openrouter") {
         return [...unique].sort((a, b) => {
+            const priorityDiff = openRouterPriority(a.id) - openRouterPriority(b.id);
+            if (priorityDiff !== 0) return priorityDiff;
             const freeDiff = Number(Boolean(b.isFree)) - Number(Boolean(a.isFree));
             if (freeDiff !== 0) return freeDiff;
             return a.label.localeCompare(b.label);
@@ -105,8 +115,32 @@ export default function CopilotPage() {
         const savedProvider = localStorage.getItem("kit_ai_provider");
         if (savedProvider === "openrouter" || savedProvider === "google") {
             setProvider(savedProvider);
+            return;
+        }
+        const hasOpenRouterKey = Boolean(localStorage.getItem("kit_openrouter_api_key"));
+        const hasGoogleKey = Boolean(localStorage.getItem("kit_google_api_key"));
+        if (hasOpenRouterKey && !hasGoogleKey) {
+            setProvider("openrouter");
+            localStorage.setItem("kit_ai_provider", "openrouter");
         }
     }, []);
+
+    // Keep provider in sync with Settings changes across tabs/pages
+    useEffect(() => {
+        const syncProvider = () => {
+            const savedProvider = localStorage.getItem("kit_ai_provider");
+            if ((savedProvider === "openrouter" || savedProvider === "google") && savedProvider !== provider) {
+                setProvider(savedProvider);
+            }
+        };
+
+        window.addEventListener("focus", syncProvider);
+        window.addEventListener("storage", syncProvider);
+        return () => {
+            window.removeEventListener("focus", syncProvider);
+            window.removeEventListener("storage", syncProvider);
+        };
+    }, [provider]);
 
     // Fetch user's repos
     const userRepos = useQuery(
@@ -423,6 +457,32 @@ export default function CopilotPage() {
                     <div className="flex items-center gap-3">
                         <Image src="/copilot-icon.png" alt="Copilot" width={20} height={20} className="opacity-80" />
                         <span className="text-sm font-medium text-white">KitBot</span>
+                        <div className="flex items-center rounded-md border border-[var(--kit-border)] overflow-hidden">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setProvider("google");
+                                    localStorage.setItem("kit_ai_provider", "google");
+                                }}
+                                className={`px-2.5 py-1 text-[10px] uppercase tracking-wide transition-colors ${provider === "google"
+                                    ? "bg-orange-500/20 text-orange-200"
+                                    : "text-[var(--kit-text-muted)] hover:text-white"}`}
+                            >
+                                Google
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setProvider("openrouter");
+                                    localStorage.setItem("kit_ai_provider", "openrouter");
+                                }}
+                                className={`px-2.5 py-1 text-[10px] uppercase tracking-wide border-l border-[var(--kit-border)] transition-colors ${provider === "openrouter"
+                                    ? "bg-orange-500/20 text-orange-200"
+                                    : "text-[var(--kit-text-muted)] hover:text-white"}`}
+                            >
+                                OpenRouter
+                            </button>
+                        </div>
                         <span className="text-[10px] uppercase tracking-wide text-orange-300 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/30">
                             {provider === "openrouter" ? "OpenRouter" : "Google"}
                         </span>

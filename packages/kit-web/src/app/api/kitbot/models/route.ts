@@ -62,6 +62,14 @@ function isOpenRouterFreeModel(model: any, id: string): boolean {
     return Number.isFinite(prompt) && Number.isFinite(completion) && prompt === 0 && completion === 0;
 }
 
+function openRouterPriority(id: string): number {
+    const normalized = id.toLowerCase();
+    if (normalized.includes("qwen")) return 0;
+    if (normalized.includes("gemma")) return 1;
+    if (normalized.includes("step")) return 2;
+    return 50;
+}
+
 function mapGoogleModels(data: any): ModelOption[] {
     const models = Array.isArray(data?.models) ? data.models : [];
 
@@ -118,6 +126,8 @@ function mapOpenRouterModels(data: any): ModelOption[] {
         })
         .filter((model: ModelOption | null): model is ModelOption => Boolean(model)))
         .sort((a, b) => {
+            const priorityDiff = openRouterPriority(a.id) - openRouterPriority(b.id);
+            if (priorityDiff !== 0) return priorityDiff;
             const freeDiff = Number(Boolean(b.isFree)) - Number(Boolean(a.isFree));
             if (freeDiff !== 0) return freeDiff;
             return a.label.localeCompare(b.label);
