@@ -35,6 +35,8 @@ const DEFAULT_MODELS: Record<Provider, string> = {
     openrouter: "google/gemini-2.5-flash",
 };
 
+const GOOGLE_FALLBACK_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"];
+
 // Tool definitions for model function/tool calling
 const TOOLS: ToolDefinition[] = [
     {
@@ -302,6 +304,71 @@ function extractOpenRouterText(responseData: any): string {
     return "";
 }
 
+function shouldRetryGeminiWithFallback(rawError: string): boolean {
+    const text = rawError.toLowerCase();
+    return (
+        text.includes("not found") ||
+        text.includes("not supported") ||
+        text.includes("does not support") ||
+        text.includes("permission denied") ||
+        text.includes("not allowed") ||
+        text.includes("model")
+    );
+}
+
+function explainGeminiError(rawError: string, selectedModel: string): string {
+    const text = rawError.toLowerCase();
+
+    if (text.includes("api key not valid") || text.includes("invalid api key") || text.includes("permission denied")) {
+        return "Google API key looks invalid or unauthorized. Re-save a valid key in Settings, then try again.";
+    }
+
+    if (text.includes("quota") || text.includes("rate limit") || text.includes("resource exhausted")) {
+        return "Google API quota/rate limit reached for this key. Try again later or switch to OpenRouter free models.";
+    }
+
+    if (text.includes("model") && (text.includes("not found") || text.includes("not supported") || text.includes("does not support"))) {
+        return `This key cannot use ${selectedModel}. Switch to Gemini 2.0 Flash or use OpenRouter free models.`;
+    }
+
+    return "Sorry, I'm having trouble connecting to the model right now. Please try again later.";
+}
+
+async function runGeminiWithFallback(
+    apiKey: string,
+    selectedModel: string,
+    body: Record<string, unknown>,
+): Promise<{ ok: true; data: any; usedModel: string } | { ok: false; error: string }> {
+    const attempted = new Set<string>();
+    const candidates = [selectedModel, ...GOOGLE_FALLBACK_MODELS].filter((model) => {
+        if (!model || attempted.has(model)) return false;
+        attempted.add(model);
+        return true;
+    });
+
+    let lastError = "Google API call failed";
+
+    for (let i = 0; i < candidates.length; i += 1) {
+        const model = candidates[i];
+        const response = await callGemini(apiKey, model, body);
+        if (response.ok) {
+            const data = await response.json();
+            return { ok: true, data, usedModel: model };
+        }
+
+        const rawError = await response.text();
+        lastError = rawError;
+        console.error(`Gemini API error (${model}):`, rawError);
+
+        const canRetry = i < candidates.length - 1 && shouldRetryGeminiWithFallback(rawError);
+        if (!canRetry) {
+            break;
+        }
+    }
+
+    return { ok: false, error: lastError };
+}
+
 async function callGemini(apiKey: string, model: string, body: Record<string, unknown>) {
     return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
         method: "POST",
@@ -437,7 +504,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ response: assistantText || "No response generated." });
         }
 
-        const firstResponse = await callGemini(apiKey, model, {
+        const firstBody: Record<string, unknown> = {
             contents: [
                 {
                     parts: [
@@ -450,18 +517,18 @@ export async function POST(request: NextRequest) {
                 maxOutputTokens: 2000,
                 temperature: 0.7,
             },
-        });
+        };
 
-        if (!firstResponse.ok) {
-            const error = await firstResponse.text();
-            console.error("Gemini API error:", error);
+        const firstResult = await runGeminiWithFallback(apiKey, model, firstBody);
+        if (!firstResult.ok) {
             return NextResponse.json(
-                { response: "Sorry, I'm having trouble connecting to the model right now. Please try again later." },
+                { response: explainGeminiError(firstResult.error, model) },
                 { status: 200 }
             );
         }
 
-        const firstData = await firstResponse.json();
+        const usedGoogleModel = firstResult.usedModel;
+        const firstData = firstResult.data;
         const parts = firstData?.candidates?.[0]?.content?.parts || [];
         const functionCalls = parts.filter((p: any) => p?.functionCall);
 
@@ -482,7 +549,7 @@ export async function POST(request: NextRequest) {
                 });
             }
 
-            const secondResponse = await callGemini(apiKey, model, {
+            const secondBody: Record<string, unknown> = {
                 contents: [
                     {
                         parts: [
@@ -497,18 +564,17 @@ export async function POST(request: NextRequest) {
                     maxOutputTokens: 2000,
                     temperature: 0.7,
                 },
-            });
+            };
 
-            if (!secondResponse.ok) {
-                const error = await secondResponse.text();
-                console.error("Gemini follow-up error:", error);
+            const secondResult = await runGeminiWithFallback(apiKey, usedGoogleModel, secondBody);
+            if (!secondResult.ok) {
                 return NextResponse.json(
-                    { response: "I executed the tools but had trouble processing the results." },
+                    { response: explainGeminiError(secondResult.error, usedGoogleModel) },
                     { status: 200 }
                 );
             }
 
-            const secondData = await secondResponse.json();
+            const secondData = secondResult.data;
             const followUpText = extractGeminiText(secondData);
             return NextResponse.json({ response: followUpText || "Tool executed successfully." });
         }
