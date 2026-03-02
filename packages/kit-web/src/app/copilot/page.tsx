@@ -30,8 +30,9 @@ interface ModelOption {
 
 const FALLBACK_MODELS: Record<AiProvider, ModelOption[]> = {
     google: [
-        { id: "gemini-3-flash-preview", label: "Gemini 3 Flash Preview", description: "Fast and capable" },
-        { id: "gemini-2.5-pro-preview-05-06", label: "Gemini 2.5 Pro", description: "Most capable" },
+        { id: "gemini-3-flash-preview", label: "Gemini 3.0 Flash Preview", description: "Fast and capable" },
+        { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Most capable" },
+        { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Balanced" },
         { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash", description: "Balanced" },
     ],
     openrouter: [

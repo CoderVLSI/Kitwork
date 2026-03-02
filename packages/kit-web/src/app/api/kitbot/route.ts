@@ -36,7 +36,7 @@ const DEFAULT_MODELS: Record<Provider, string> = {
     openrouter: "google/gemini-2.5-flash",
 };
 
-const GOOGLE_FALLBACK_MODELS = ["gemini-2.0-flash"];
+const GOOGLE_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
 
 // Tool definitions for model function/tool calling
 const TOOLS: ToolDefinition[] = [
@@ -202,6 +202,14 @@ const GEMINI_TOOLS = [
 
 function normalizeProvider(provider: unknown): Provider {
     return provider === "openrouter" ? "openrouter" : "google";
+}
+
+function normalizeGoogleModelId(model: string): string {
+    const normalized = model.toLowerCase();
+    if (normalized === "gemini-3.0-flash" || normalized === "gemini-3-flash") {
+        return "gemini-3-flash-preview";
+    }
+    return model;
 }
 
 function safeParseObject(value: unknown): Record<string, unknown> {
@@ -557,7 +565,7 @@ function explainGeminiError(rawError: string, selectedModel: string): string {
     }
 
     if (text.includes("model") && (text.includes("not found") || text.includes("not supported") || text.includes("does not support"))) {
-        return `This key cannot use ${selectedModel}. Switch to Gemini 2.0 Flash or use OpenRouter free models. (${detail})`;
+        return `This key cannot use ${selectedModel}. Switch to Gemini 2.5 Flash / 2.0 Flash or use OpenRouter free models. (${detail})`;
     }
 
     return `Google API error: ${detail}`;
@@ -618,10 +626,11 @@ async function runGeminiWithFallback(
 }
 
 async function callGemini(apiKey: string, model: string, body: Record<string, unknown>) {
-    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
         },
         body: JSON.stringify(body),
     });
@@ -673,7 +682,8 @@ export async function POST(request: NextRequest) {
         }
 
         const provider = normalizeProvider(body.provider);
-        const model = stringValue(body.model).trim() || DEFAULT_MODELS[provider];
+        const requestedModel = stringValue(body.model).trim() || DEFAULT_MODELS[provider];
+        const model = provider === "google" ? normalizeGoogleModelId(requestedModel) : requestedModel;
         const userApiKey = stringValue(body.apiKey).trim();
 
         const apiKey = provider === "openrouter"
