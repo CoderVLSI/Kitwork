@@ -26,6 +26,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
     const profileUser = useQuery(api.users.getByUsername, { username });
     const userRepos = useQuery(api.repos.listByUser, { ownerUsername: username });
     const activities = useQuery(api.activities.getActivities, { username });
+    const contributionData = useQuery(api.activities.getContributionData, { username });
 
     // Crew data
     const crewCounts = useQuery(api.crew.getCounts,
@@ -146,29 +147,49 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
                     </div>
                 </div>
 
-                {/* Contribution Heatmap Placeholder */}
+                {/* Contribution Heatmap - Real Data */}
                 <div className="glass rounded-2xl p-6 mb-8">
                     <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                        🔥 Contribution Activity
+                        🔥 {contributionData?.reduce((a, b) => a + b, 0) || 0} contributions in the last year
                     </h2>
                     <div className="grid grid-cols-[repeat(52,1fr)] gap-[3px]">
-                        {Array.from({ length: 364 }, (_, i) => {
-                            // Simulate some activity data based on activities
-                            const level = activities && activities.length > 0
-                                ? Math.random() > 0.7 ? Math.floor(Math.random() * 4) + 1 : 0
-                                : 0;
-                            const colors = [
-                                "bg-[var(--kit-border)]",
-                                "bg-orange-900/60",
-                                "bg-orange-700/70",
-                                "bg-orange-500/80",
-                                "bg-orange-400",
-                            ];
-                            return (
-                                <div key={i} className={`aspect-square rounded-[2px] ${colors[level]}`}
-                                    title={`${level} contributions`} />
-                            );
-                        })}
+                        {contributionData === undefined ? (
+                            // Loading state
+                            Array.from({ length: 365 }).map((_, i) => (
+                                <div key={i} className="aspect-square rounded-[2px] bg-[var(--kit-border)] animate-pulse" />
+                            ))
+                        ) : (
+                            contributionData.map((count, i) => {
+                                // Determine color level based on contribution count
+                                let level = 0;
+                                if (count === 0) level = 0;
+                                else if (count <= 2) level = 1;
+                                else if (count <= 4) level = 2;
+                                else if (count <= 6) level = 3;
+                                else level = 4;
+
+                                const colors = [
+                                    "bg-[var(--kit-border)]",
+                                    "bg-orange-900/60",
+                                    "bg-orange-700/70",
+                                    "bg-orange-500/80",
+                                    "bg-orange-400",
+                                ];
+
+                                // Calculate date for tooltip
+                                const date = new Date();
+                                date.setDate(date.getDate() - (364 - i));
+                                const dateStr = date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+                                return (
+                                    <div
+                                        key={i}
+                                        className={`aspect-square rounded-[2px] ${colors[level]} hover:ring-1 hover:ring-orange-400/50 transition-all`}
+                                        title={`${dateStr}: ${count} contribution${count !== 1 ? "s" : ""}`}
+                                    />
+                                );
+                            })
+                        )}
                     </div>
                     <div className="flex items-center justify-end gap-1 mt-2 text-[10px] text-[var(--kit-text-muted)]">
                         <span>Less</span>

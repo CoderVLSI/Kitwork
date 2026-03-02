@@ -188,10 +188,15 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                     </div>
                                 )}
                             </div>
-                            {user && !isOwner && (
+                            {/* Remix count - show to everyone like GitHub forks */}
+                            {user && !isOwner ? (
                                 <button onClick={handleRemix} className="px-3 py-1.5 rounded-lg glass text-[var(--kit-text-muted)] hover:text-white text-sm font-medium transition-all flex items-center gap-1.5">
                                     🎵 Remix {remixCount ? `(${remixCount})` : ""}
                                 </button>
+                            ) : (
+                                <div className="px-3 py-1.5 rounded-lg glass text-[var(--kit-text-muted)] text-sm font-medium flex items-center gap-1.5">
+                                    🎵 Remix {remixCount ? `(${remixCount})` : ""}
+                                </div>
                             )}
                             {isOwner && (
                                 <>
