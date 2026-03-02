@@ -179,6 +179,12 @@ const OPENAI_TOOLS = TOOLS.map((tool) => ({
     },
 }));
 
+const GEMINI_TOOLS = [
+    {
+        functionDeclarations: TOOLS,
+    },
+];
+
 function normalizeProvider(provider: unknown): Provider {
     return provider === "openrouter" ? "openrouter" : "google";
 }
@@ -553,7 +559,7 @@ export async function POST(request: NextRequest) {
                     ],
                 },
             ],
-            tools: TOOLS,
+            tools: GEMINI_TOOLS,
             generationConfig: {
                 maxOutputTokens: 2000,
                 temperature: 0.7,
@@ -600,7 +606,7 @@ export async function POST(request: NextRequest) {
                         ],
                     },
                 ],
-                tools: TOOLS,
+                tools: GEMINI_TOOLS,
                 generationConfig: {
                     maxOutputTokens: 2000,
                     temperature: 0.7,
