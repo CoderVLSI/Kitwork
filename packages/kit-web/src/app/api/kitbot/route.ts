@@ -37,6 +37,7 @@ const DEFAULT_MODELS: Record<Provider, string> = {
 };
 
 const GOOGLE_FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const OPENROUTER_FALLBACK_MODELS = ["google/gemini-2.5-flash", "openai/gpt-4o-mini"];
 
 // Tool definitions for model function/tool calling
 const TOOLS: ToolDefinition[] = [
@@ -575,6 +576,10 @@ function explainOpenRouterError(rawError: string, selectedModel: string): string
     const detail = extractApiErrorMessage(rawError);
     const text = detail.toLowerCase();
 
+    if (text.includes("no endpoints found matching your data policy") || text.includes("free model publication")) {
+        return `OpenRouter blocked the free endpoint for ${selectedModel} under your current data policy. Use a non-free model or update policy settings. (${detail})`;
+    }
+
     if (text.includes("invalid") && text.includes("key")) {
         return `OpenRouter API key looks invalid. (${detail})`;
     }
@@ -585,6 +590,10 @@ function explainOpenRouterError(rawError: string, selectedModel: string): string
 
     if (text.includes("model") && (text.includes("not found") || text.includes("not available") || text.includes("does not exist"))) {
         return `Selected model (${selectedModel}) is unavailable on OpenRouter. (${detail})`;
+    }
+
+    if (text.includes("provider returned error")) {
+        return `OpenRouter provider failed for ${selectedModel}. Try a different model (prefer non-free fallback). (${detail})`;
     }
 
     return `OpenRouter API error: ${detail}`;
@@ -649,6 +658,61 @@ async function callOpenRouter(apiKey: string, body: Record<string, unknown>, fal
     });
 }
 
+function shouldRetryOpenRouterWithFallback(rawError: string): boolean {
+    const text = extractApiErrorMessage(rawError).toLowerCase();
+    return (
+        text.includes("no endpoints found matching your data policy") ||
+        text.includes("free model publication") ||
+        text.includes("provider returned error") ||
+        text.includes("temporarily unavailable") ||
+        text.includes("timeout")
+    );
+}
+
+function openRouterModelCandidates(selectedModel: string): string[] {
+    const candidates = new Set<string>();
+    const normalized = selectedModel.trim();
+    if (normalized) candidates.add(normalized);
+    if (normalized.toLowerCase().endsWith(":free")) {
+        candidates.add(normalized.replace(/:free$/i, ""));
+    }
+    for (const fallback of OPENROUTER_FALLBACK_MODELS) {
+        candidates.add(fallback);
+    }
+    return Array.from(candidates).filter(Boolean);
+}
+
+async function runOpenRouterWithFallback(
+    apiKey: string,
+    selectedModel: string,
+    body: Record<string, unknown>,
+    origin: string,
+): Promise<{ ok: true; data: any; usedModel: string } | { ok: false; error: string; lastModel: string }> {
+    const candidates = openRouterModelCandidates(selectedModel);
+    let lastError = "OpenRouter API call failed";
+    let lastModel = selectedModel;
+
+    for (let i = 0; i < candidates.length; i += 1) {
+        const model = candidates[i];
+        lastModel = model;
+
+        const response = await callOpenRouter(apiKey, { ...body, model }, origin);
+        if (response.ok) {
+            const data = await response.json();
+            return { ok: true, data, usedModel: model };
+        }
+
+        const rawError = await response.text();
+        lastError = rawError;
+        console.error(`OpenRouter API error (${model}):`, rawError);
+
+        const canRetry = i < candidates.length - 1 && shouldRetryOpenRouterWithFallback(rawError);
+        if (!canRetry) break;
+    }
+
+    return { ok: false, error: lastError, lastModel };
+}
+
 export async function POST(request: NextRequest) {
     try {
         const body = (await request.json()) as KitBotRequestBody;
@@ -705,22 +769,27 @@ export async function POST(request: NextRequest) {
                 { role: "user", content: message },
             ];
 
-            const firstResponse = await callOpenRouter(apiKey, {
-                model,
+            const firstBody = {
                 messages: initialMessages,
                 tools: OPENAI_TOOLS,
                 tool_choice: "auto",
                 temperature: 0.7,
                 max_tokens: 2000,
-            }, request.nextUrl.origin);
+            };
 
-            if (!firstResponse.ok) {
-                const error = await firstResponse.text();
-                console.error("OpenRouter API error:", error);
-                return respondText(explainOpenRouterError(error, model), stream);
+            const firstResult = await runOpenRouterWithFallback(
+                apiKey,
+                model,
+                firstBody,
+                request.nextUrl.origin
+            );
+
+            if (!firstResult.ok) {
+                return respondText(explainOpenRouterError(firstResult.error, firstResult.lastModel), stream);
             }
 
-            const firstData = await firstResponse.json();
+            const usedOpenRouterModel = firstResult.usedModel;
+            const firstData = firstResult.data;
             const assistantMessage = firstData?.choices?.[0]?.message;
             const toolCalls = Array.isArray(assistantMessage?.tool_calls) ? assistantMessage.tool_calls : [];
 
@@ -741,8 +810,7 @@ export async function POST(request: NextRequest) {
                     });
                 }
 
-                const secondResponse = await callOpenRouter(apiKey, {
-                    model,
+                const secondBody = {
                     messages: [
                         ...initialMessages,
                         {
@@ -756,15 +824,20 @@ export async function POST(request: NextRequest) {
                     tool_choice: "auto",
                     temperature: 0.7,
                     max_tokens: 2000,
-                }, request.nextUrl.origin);
+                };
 
-                if (!secondResponse.ok) {
-                    const error = await secondResponse.text();
-                    console.error("OpenRouter follow-up error:", error);
-                    return respondText(explainOpenRouterError(error, model), stream);
+                const secondResult = await runOpenRouterWithFallback(
+                    apiKey,
+                    usedOpenRouterModel,
+                    secondBody,
+                    request.nextUrl.origin
+                );
+
+                if (!secondResult.ok) {
+                    return respondText(explainOpenRouterError(secondResult.error, secondResult.lastModel), stream);
                 }
 
-                const secondData = await secondResponse.json();
+                const secondData = secondResult.data;
                 const followUpText = extractOpenRouterText(secondData);
                 return respondText(followUpText || "Tool executed successfully.", stream);
             }
