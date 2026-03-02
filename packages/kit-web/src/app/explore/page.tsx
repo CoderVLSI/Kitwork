@@ -10,7 +10,7 @@ const SPARK_MAP: Record<string, string> = {
 };
 
 export default function ExplorePage() {
-    const [activeTab, setActiveTab] = useState<"trending" | "active" | "newest">("trending");
+    const [activeTab, setActiveTab] = useState<"trending" | "remixed" | "active" | "newest">("trending");
     const [search, setSearch] = useState("");
     const exploreData = useQuery(api.repos.getExploreData);
 
