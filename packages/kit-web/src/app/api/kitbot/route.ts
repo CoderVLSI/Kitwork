@@ -28,6 +28,7 @@ interface KitBotRequestBody {
     username?: string;
     repoName?: string;
     userId?: string;
+    stream?: boolean;
 }
 
 const DEFAULT_MODELS: Record<Provider, string> = {
@@ -325,6 +326,55 @@ function normalizeToolParams(toolName: string, params: Record<string, unknown>):
     return params;
 }
 
+function splitForStreaming(text: string): string[] {
+    if (!text) return [""];
+
+    const parts = text.split(/(\s+)/);
+    const chunks: string[] = [];
+    let current = "";
+
+    for (const part of parts) {
+        if ((current + part).length > 28) {
+            if (current) chunks.push(current);
+            current = part;
+        } else {
+            current += part;
+        }
+    }
+    if (current) chunks.push(current);
+    return chunks.length ? chunks : [text];
+}
+
+function streamTextResponse(text: string): Response {
+    const encoder = new TextEncoder();
+    const chunks = splitForStreaming(text);
+
+    const stream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+            for (const chunk of chunks) {
+                controller.enqueue(encoder.encode(chunk));
+                // Small pacing delay so UI can render progressive chunks.
+                await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+            controller.close();
+        },
+    });
+
+    return new Response(stream, {
+        status: 200,
+        headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+        },
+    });
+}
+
+function respondText(text: string, stream: boolean): Response {
+    if (stream) return streamTextResponse(text);
+    return NextResponse.json({ response: text }, { status: 200 });
+}
+
 function buildSystemInstruction(context: KitBotContext): string {
     let repoInfo = "";
 
@@ -575,9 +625,10 @@ export async function POST(request: NextRequest) {
         const username = stringValue(body.username) || undefined;
         const repoName = stringValue(body.repoName) || undefined;
         const userId = stringValue(body.userId) || undefined;
+        const stream = Boolean(body.stream);
 
         if (!message) {
-            return NextResponse.json({ response: "Please enter a message." }, { status: 200 });
+            return respondText("Please enter a message.", stream);
         }
 
         if (username && repoName) {
@@ -591,9 +642,10 @@ export async function POST(request: NextRequest) {
                     repoName,
                     userId
                 );
-                return NextResponse.json({
-                    response: formatDirectToolResponse(directPlan.toolName, toolResult),
-                });
+                return respondText(
+                    formatDirectToolResponse(directPlan.toolName, toolResult),
+                    stream
+                );
             }
         }
 
@@ -609,7 +661,7 @@ export async function POST(request: NextRequest) {
             const response = provider === "openrouter"
                 ? "KitBot requires an OpenRouter API key. Add it in Settings to use OpenRouter models."
                 : "KitBot requires a Google API key. Add it in Settings to use Google Gemini models.";
-            return NextResponse.json({ response }, { status: 200 });
+            return respondText(response, stream);
         }
 
         const systemInstruction = buildSystemInstruction(context);
@@ -632,10 +684,7 @@ export async function POST(request: NextRequest) {
             if (!firstResponse.ok) {
                 const error = await firstResponse.text();
                 console.error("OpenRouter API error:", error);
-                return NextResponse.json(
-                    { response: explainOpenRouterError(error, model) },
-                    { status: 200 }
-                );
+                return respondText(explainOpenRouterError(error, model), stream);
             }
 
             const firstData = await firstResponse.json();
@@ -679,21 +728,16 @@ export async function POST(request: NextRequest) {
                 if (!secondResponse.ok) {
                     const error = await secondResponse.text();
                     console.error("OpenRouter follow-up error:", error);
-                    return NextResponse.json(
-                        { response: explainOpenRouterError(error, model) },
-                        { status: 200 }
-                    );
+                    return respondText(explainOpenRouterError(error, model), stream);
                 }
 
                 const secondData = await secondResponse.json();
                 const followUpText = extractOpenRouterText(secondData);
-                return NextResponse.json({
-                    response: followUpText || "Tool executed successfully.",
-                });
+                return respondText(followUpText || "Tool executed successfully.", stream);
             }
 
             const assistantText = extractOpenRouterText(firstData);
-            return NextResponse.json({ response: assistantText || "No response generated." });
+            return respondText(assistantText || "No response generated.", stream);
         }
 
         const firstBody: Record<string, unknown> = {
@@ -713,10 +757,7 @@ export async function POST(request: NextRequest) {
 
         const firstResult = await runGeminiWithFallback(apiKey, model, firstBody);
         if (!firstResult.ok) {
-            return NextResponse.json(
-                { response: explainGeminiError(firstResult.error, model) },
-                { status: 200 }
-            );
+            return respondText(explainGeminiError(firstResult.error, model), stream);
         }
 
         const usedGoogleModel = firstResult.usedModel;
@@ -760,24 +801,18 @@ export async function POST(request: NextRequest) {
 
             const secondResult = await runGeminiWithFallback(apiKey, usedGoogleModel, secondBody);
             if (!secondResult.ok) {
-                return NextResponse.json(
-                    { response: explainGeminiError(secondResult.error, usedGoogleModel) },
-                    { status: 200 }
-                );
+                return respondText(explainGeminiError(secondResult.error, usedGoogleModel), stream);
             }
 
             const secondData = secondResult.data;
             const followUpText = extractGeminiText(secondData);
-            return NextResponse.json({ response: followUpText || "Tool executed successfully." });
+            return respondText(followUpText || "Tool executed successfully.", stream);
         }
 
         const assistantMessage = extractGeminiText(firstData);
-        return NextResponse.json({ response: assistantMessage || "No response generated." });
+        return respondText(assistantMessage || "No response generated.", stream);
     } catch (error: any) {
         console.error("KitBot error:", error);
-        return NextResponse.json(
-            { response: "Something went wrong. Please try again." },
-            { status: 200 }
-        );
+        return respondText("Something went wrong. Please try again.", false);
     }
 }

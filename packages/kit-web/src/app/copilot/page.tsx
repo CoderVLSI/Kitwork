@@ -201,6 +201,19 @@ export default function CopilotPage() {
         setIsLoading(true);
 
         try {
+            setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+            const setAssistantContent = (content: string) => {
+                setMessages((prev) => {
+                    const next = [...prev];
+                    if (next.length === 0 || next[next.length - 1].role !== "assistant") {
+                        next.push({ role: "assistant", content });
+                    } else {
+                        next[next.length - 1] = { role: "assistant", content };
+                    }
+                    return next;
+                });
+            };
+
             const apiKey = provider === "openrouter"
                 ? (localStorage.getItem("kit_openrouter_api_key") || "")
                 : (localStorage.getItem("kit_google_api_key") || "");
@@ -230,6 +243,7 @@ export default function CopilotPage() {
                     username: selectedRepo?.ownerUsername,
                     repoName: selectedRepo?.name,
                     userId: user?.id,
+                    stream: true,
                 }),
             });
 
@@ -237,15 +251,34 @@ export default function CopilotPage() {
                 throw new Error("KitBot is not available right now");
             }
 
-            const data = await response.json();
-            setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+            const contentType = response.headers.get("content-type") || "";
+            if (contentType.includes("application/json")) {
+                const data = await response.json();
+                setAssistantContent(data?.response || "No response generated.");
+            } else if (response.body) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let full = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    full += decoder.decode(value, { stream: true });
+                    setAssistantContent(full);
+                }
+
+                full += decoder.decode();
+                setAssistantContent(full || "No response generated.");
+            } else {
+                const text = await response.text();
+                setAssistantContent(text || "No response generated.");
+            }
         } catch (error: any) {
             setMessages((prev) => [
-                ...prev,
-                {
-                    role: "assistant",
-                    content: `Sorry, I encountered an error: ${error.message}. Make sure the KitBot API is configured.`,
-                },
+                ...(prev.length > 0 && prev[prev.length - 1].role === "assistant" && !prev[prev.length - 1].content
+                    ? prev.slice(0, -1)
+                    : prev),
+                { role: "assistant", content: `Sorry, I encountered an error: ${error.message}. Make sure the KitBot API is configured.` },
             ]);
         } finally {
             setIsLoading(false);

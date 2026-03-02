@@ -95,7 +95,15 @@ export const listFiles = query({
                 q.eq("repoId", repo._id).eq("name", repo.defaultBranch || "main")
             )
             .first();
-        if (!branchRef) return { error: "Branch not found" };
+        if (!branchRef) {
+            return {
+                entries: [],
+                path: args.path || "",
+                branch: repo.defaultBranch || "main",
+                empty: true,
+                message: "Repository has no commits yet.",
+            };
+        }
 
         const commitObj = await ctx.db
             .query("objects")
