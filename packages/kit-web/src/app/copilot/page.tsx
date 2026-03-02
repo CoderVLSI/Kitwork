@@ -101,6 +101,7 @@ export default function CopilotPage() {
     const [modelsError, setModelsError] = useState("");
     const [showModelMenu, setShowModelMenu] = useState(false);
     const [showAllModels, setShowAllModels] = useState(false);
+    const [modelSearch, setModelSearch] = useState("");
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [user, setUser] = useState<{ id: string; username: string } | null>(null);
     const [repoSearch, setRepoSearch] = useState("");
@@ -163,6 +164,7 @@ export default function CopilotPage() {
     useEffect(() => {
         setShowModelMenu(false);
         setShowAllModels(false);
+        setModelSearch("");
 
         const refreshModels = async () => {
             setIsModelsLoading(true);
@@ -330,8 +332,18 @@ export default function CopilotPage() {
         setShowModelMenu(false);
     };
 
-    const visibleModels = showAllModels ? models : models.slice(0, VISIBLE_MODEL_COUNT);
-    const hasMoreModels = models.length > VISIBLE_MODEL_COUNT;
+    const searchedModels = modelSearch.trim()
+        ? models.filter((model) => {
+            const query = modelSearch.toLowerCase();
+            return (
+                model.label.toLowerCase().includes(query) ||
+                model.id.toLowerCase().includes(query) ||
+                model.description.toLowerCase().includes(query)
+            );
+        })
+        : models;
+    const visibleModels = showAllModels ? searchedModels : searchedModels.slice(0, VISIBLE_MODEL_COUNT);
+    const hasMoreModels = searchedModels.length > VISIBLE_MODEL_COUNT;
     const isEmptyChat = messages.length === 0;
 
     return (
@@ -521,9 +533,18 @@ export default function CopilotPage() {
                                     <span className="text-[10px] uppercase tracking-wider text-[var(--kit-text-muted)] font-semibold px-2">
                                         {provider === "openrouter" ? "OpenRouter Models" : "Google Models"}
                                     </span>
+                                    <div className="mt-2 px-1">
+                                        <input
+                                            type="text"
+                                            value={modelSearch}
+                                            onChange={(e) => setModelSearch(e.target.value)}
+                                            placeholder={provider === "openrouter" ? "Search models (qwen, step, gemma)..." : "Search models..."}
+                                            className="w-full px-2.5 py-1.5 rounded-md bg-[var(--kit-bg)] border border-[var(--kit-border)] text-xs text-white placeholder:text-[var(--kit-text-muted)] focus:outline-none focus:border-orange-500/40"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="max-h-80 overflow-y-auto py-1">
-                                    {models.length === 0 && (
+                                    {searchedModels.length === 0 && (
                                         <div className="px-4 py-3 text-xs text-[var(--kit-text-muted)]">No models found.</div>
                                     )}
                                     {visibleModels.map((model) => (
@@ -562,7 +583,7 @@ export default function CopilotPage() {
                                             onClick={() => setShowAllModels((prev) => !prev)}
                                             className="w-full px-3 py-2 rounded-lg text-xs font-medium text-orange-300 bg-orange-500/10 border border-orange-500/30 hover:bg-orange-500/20 transition-colors"
                                         >
-                                            {showAllModels ? "Show fewer options" : `Other options (${models.length - VISIBLE_MODEL_COUNT})`}
+                                            {showAllModels ? "Show fewer options" : `Other options (${searchedModels.length - VISIBLE_MODEL_COUNT})`}
                                         </button>
                                     </div>
                                 )}

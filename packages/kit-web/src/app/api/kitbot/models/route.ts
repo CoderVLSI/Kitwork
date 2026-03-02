@@ -157,13 +157,18 @@ export async function POST(request: NextRequest) {
         }
 
         if (provider === "openrouter") {
-            const response = await fetch("https://openrouter.ai/api/v1/models", {
-                headers: {
-                    "Authorization": `Bearer ${apiKey}`,
-                    "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
-                    "X-Title": "Kitwork KitBot",
-                },
-            });
+            const headers = {
+                "Authorization": `Bearer ${apiKey}`,
+                "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin,
+                "X-Title": "Kitwork KitBot",
+            };
+
+            // Prefer user-filtered list (respects account-level policies/settings).
+            let response = await fetch("https://openrouter.ai/api/v1/models/user", { headers });
+            if (!response.ok) {
+                // Fallback to the full catalog endpoint if user endpoint is unavailable.
+                response = await fetch("https://openrouter.ai/api/v1/models", { headers });
+            }
 
             if (!response.ok) {
                 const error = await response.text();
