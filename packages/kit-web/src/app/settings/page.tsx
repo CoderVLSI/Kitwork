@@ -287,7 +287,7 @@ export default function SettingsPage() {
                 <div className="glass rounded-2xl p-6 mb-6">
                     <h2 className="text-lg font-semibold text-white mb-2">KitBot 🐱‍🏗️</h2>
                     <p className="text-sm text-[var(--kit-text-muted)] mb-4">
-                        Powered by <span className="text-orange-400 font-semibold">Google Gemini 2.5 Flash Preview</span>. Add your API key to enable KitBot AI assistant.
+                        Powered by <span className="text-orange-400 font-semibold">Google Gemini 3 Flash Preview</span>. Add your API key to enable KitBot AI assistant.
                     </p>
 
                     <div>

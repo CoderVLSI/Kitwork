@@ -133,7 +133,7 @@ const TOOLS = [
     },
 ];
 
-const MODEL_ID = "gemini-2.5-flash-preview-05-20"; // Fixed to Gemini 2.5 Flash Preview
+const MODEL_ID = "gemini-3-flash-preview"; // Gemini 3 Flash Preview
 
 export async function POST(request: NextRequest) {
     try {
