@@ -221,8 +221,10 @@ Repository Information:
 - Default Branch: ${parsed.defaultBranch || "main"}
 - Visibility: ${parsed.isPublic ? "Public" : "Private"}
 
-Files in this repository (${parsed.files?.length || 0} total):
-${parsed.files?.map((f: any) => `  - ${f.name} (${f.type}${f.language ? ` - ${f.language}` : ""})`).join("\n") || "  No files"}
+${Array.isArray(parsed.files)
+                    ? `Files in this repository (${parsed.files.length} total):
+${parsed.files.map((f: any) => `  - ${f.name} (${f.type}${f.language ? ` - ${f.language}` : ""})`).join("\n") || "  No files detected"}`
+                    : `File list not preloaded. Use list_files before concluding the repository is empty.`}
 
 ${parsed.stats ? `Statistics:
 - Languages: ${parsed.stats.languages?.map((l: any) => l.name).join(", ") || "None detected"}
@@ -253,6 +255,13 @@ You have access to Git tools through function calling. When users ask you to:
 - Show diff: Use diff tool
 
 Always explain what you're doing before calling a tool. After getting tool results, summarize what happened.
+
+Execution policy:
+- Prefer taking action with tools instead of repeatedly asking for clarification.
+- For short commands like "add", "do it", "start", or "done?", infer intent from recent context and proceed.
+- If context is incomplete, call list_files/status first rather than assuming the repository is empty.
+- Ask a clarifying question only for destructive operations or when there are multiple high-impact options.
+- If asked to add/start in a new or empty repository, create a minimal starter (README.md plus one runnable entry file) and commit message.
 
 Guidelines:
 - Be concise and helpful
