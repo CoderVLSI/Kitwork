@@ -627,5 +627,6 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                     userId={user?.id}
                 />
             </div>
-            );
+        </div>
+    );
 }
