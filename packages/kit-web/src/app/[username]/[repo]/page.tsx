@@ -192,12 +192,12 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                             {user && !isOwner ? (
                                 <button onClick={handleRemix} className="px-3 py-1.5 rounded-lg glass text-[var(--kit-text-muted)] hover:text-white hover:bg-white/5 text-sm font-medium transition-all flex items-center gap-1.5 cursor-pointer">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
-                                    Remix{remixCount ? ` ${remixCount}` : ""}
+                                    Remix{remixCount ? ` (${remixCount})` : ""}
                                 </button>
                             ) : (
                                 <div className="px-3 py-1.5 rounded-lg glass text-[var(--kit-text-muted)] text-sm font-medium flex items-center gap-1.5">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
-                                    Remix{remixCount ? ` ${remixCount}` : ""}
+                                    Remix{remixCount ? ` (${remixCount})` : ""}
                                 </div>
                             )}
                             {isOwner && (
@@ -471,6 +471,35 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                         </div>
                                     )}
 
+                                    {/* Contributors */}
+                                    {repoStats.contributors && repoStats.contributors > 0 && commits && commits.length > 0 && (
+                                        <div className="glass rounded-xl p-4">
+                                            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-1.5">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                                                Contributors
+                                            </h3>
+                                            <div className="flex flex-wrap gap-2">
+                                                {(() => {
+                                                    const contributorMap = new Map<string, number>();
+                                                    commits.forEach((c: any) => {
+                                                        const author = c.author || "unknown";
+                                                        contributorMap.set(author, (contributorMap.get(author) || 0) + 1);
+                                                    });
+                                                    const sorted = Array.from(contributorMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6);
+                                                    return sorted.map(([author, count]) => (
+                                                        <div key={author} className="flex items-center gap-1.5 text-xs">
+                                                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-[10px] font-bold">
+                                                                {author[0].toUpperCase()}
+                                                            </div>
+                                                            <span className="text-[var(--kit-text-muted)] truncate max-w-[70px]" title={author}>{author}</span>
+                                                            <span className="text-white/60">{count}</span>
+                                                        </div>
+                                                    ));
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Latest Commit */}
                                     {repoStats.latestCommit && (
                                         <div className="glass rounded-xl p-4">
@@ -489,7 +518,7 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
 
                                     {/* Quick Stats */}
                                     <div className="glass rounded-xl p-4">
-                                        <div className="grid grid-cols-3 gap-3 text-center">
+                                        <div className="grid grid-cols-2 gap-3 text-center">
                                             <div>
                                                 <div className="text-lg font-bold text-white">{repoStats.commits}</div>
                                                 <div className="text-xs text-[var(--kit-text-muted)]">Commits</div>
@@ -497,6 +526,12 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                             <div>
                                                 <div className="text-lg font-bold text-white">{repoStats.fileCount}</div>
                                                 <div className="text-xs text-[var(--kit-text-muted)]">Files</div>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 text-center mt-3 pt-3 border-t border-[var(--kit-border)]">
+                                            <div>
+                                                <div className="text-lg font-bold text-orange-400">{sparkData?.total || 0}</div>
+                                                <div className="text-xs text-[var(--kit-text-muted)]">Sparks</div>
                                             </div>
                                             <div>
                                                 <div className="text-lg font-bold text-indigo-400">{remixCount || 0}</div>
