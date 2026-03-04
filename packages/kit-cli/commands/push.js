@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const zlib = require('zlib');
 const { getKitDir, resolveRef, readObject, readCommit } = require('kit-core');
 
 /**
@@ -53,11 +54,14 @@ module.exports = function push(remoteName, branchName) {
         const objectHashes = new Set();
         collectObjects(commitHash, kitDir, objectHashes);
 
-        // Build objects array (base64-encoded RAW files — NOT compressed for Convex)
+        // Build objects array (base64-encoded uncompressed content for Convex)
+        // Objects on disk are zlib-compressed — decompress before sending
         const objects = [];
         for (const hash of objectHashes) {
             const objPath = path.join(kitDir, 'objects', hash.slice(0, 2), hash.slice(2));
-            const data = fs.readFileSync(objPath).toString('base64');
+            const compressed = fs.readFileSync(objPath);
+            const decompressed = zlib.inflateSync(compressed);
+            const data = decompressed.toString('base64');
             objects.push({ hash, data });
         }
 

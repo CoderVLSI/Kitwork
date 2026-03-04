@@ -125,6 +125,34 @@ export const push = mutation({
 });
 
 /**
+ * Clear all objects, branches, and commits for a repo (for re-push after fix).
+ */
+export const clearRepoObjects = mutation({
+    args: { repoId: v.id("repos") },
+    handler: async (ctx, args) => {
+        const objects = await ctx.db
+            .query("objects")
+            .withIndex("by_repo_hash", (q) => q.eq("repoId", args.repoId))
+            .collect();
+        for (const obj of objects) await ctx.db.delete(obj._id);
+
+        const branches = await ctx.db
+            .query("branches")
+            .withIndex("by_repo_name", (q) => q.eq("repoId", args.repoId))
+            .collect();
+        for (const b of branches) await ctx.db.delete(b._id);
+
+        const commits = await ctx.db
+            .query("commits")
+            .withIndex("by_hash", (q) => q.eq("repoId", args.repoId))
+            .collect();
+        for (const c of commits) await ctx.db.delete(c._id);
+
+        return { deleted: objects.length + branches.length + commits.length };
+    },
+});
+
+/**
  * Get all objects for pull.
  */
 export const pull = query({
