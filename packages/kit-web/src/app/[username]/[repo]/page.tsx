@@ -230,199 +230,199 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                     <div className="flex-1 min-w-0">
                         {/* Clone */}
                         <div className="glass rounded-xl p-3 mb-6 flex items-center gap-3">
-                    <span className="text-xs text-[var(--kit-text-muted)]">Clone:</span>
-                    <code className="text-xs code-font text-orange-300 flex-1">kit clone {username}/{repoName}</code>
-                </div>
+                            <span className="text-xs text-[var(--kit-text-muted)]">Clone:</span>
+                            <code className="text-xs code-font text-orange-300 flex-1">kit clone {username}/{repoName}</code>
+                        </div>
 
-                {/* Tabs */}
-                <div className="flex gap-1 mb-6 border-b border-[var(--kit-border)]">
-                    {(["code", "commits", "threads", "patches"] as const).map(t => (
-                        <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === t ? "border-orange-500 text-white" : "border-transparent text-[var(--kit-text-muted)] hover:text-white"}`}>
-                            {t === "code" ? "📁 Code" : t === "commits" ? `📝 Commits${commits?.length ? ` (${commits.length})` : ""}` : t === "threads" ? `🧵 Threads${threads?.length ? ` (${threads.length})` : ""}` : `🩹 Patches${patches?.length ? ` (${patches.length})` : ""}`}
-                        </button>
-                    ))}
-                </div>
+                        {/* Tabs */}
+                        <div className="flex gap-1 mb-6 border-b border-[var(--kit-border)]">
+                            {(["code", "commits", "threads", "patches"] as const).map(t => (
+                                <button key={t} onClick={() => setTab(t)} className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === t ? "border-orange-500 text-white" : "border-transparent text-[var(--kit-text-muted)] hover:text-white"}`}>
+                                    {t === "code" ? "📁 Code" : t === "commits" ? `📝 Commits${commits?.length ? ` (${commits.length})` : ""}` : t === "threads" ? `🧵 Threads${threads?.length ? ` (${threads.length})` : ""}` : `🩹 Patches${patches?.length ? ` (${patches.length})` : ""}`}
+                                </button>
+                            ))}
+                        </div>
 
-                {/* Code Tab */}
-                {tab === "code" && (
-                    <>
-                        {viewingFile && fileData ? (
-                            <div className="glass rounded-xl overflow-hidden">
-                                <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--kit-border)]">
-                                    <div className="flex items-center gap-2">
-                                        <button onClick={() => setViewingFile(null)} className="text-xs text-orange-400 hover:text-orange-300">← Back</button>
-                                        <span className="text-sm code-font text-white">{getFileIcon(viewingFile)} {viewingFile}</span>
-                                    </div>
-                                    <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400">{detectLanguage(viewingFile)}</span>
-                                </div>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full"><tbody>
-                                        {fileData.content.split("\n").map((line, i) => (
-                                            <tr key={i} className="hover:bg-white/[0.02]">
-                                                <td className="px-4 py-0 text-right select-none text-xs code-font text-[var(--kit-text-muted)]/40 w-12">{i + 1}</td>
-                                                <td className="px-4 py-0"><pre className="text-sm code-font text-[var(--kit-text)] whitespace-pre">{line}</pre></td>
-                                            </tr>
-                                        ))}
-                                    </tbody></table>
-                                </div>
-                            </div>
-                        ) : (
+                        {/* Code Tab */}
+                        {tab === "code" && (
                             <>
-                            <div className="glass rounded-xl overflow-hidden">
-                                {currentPath && (
-                                    <div className="flex items-center gap-1 px-4 py-3 border-b border-[var(--kit-border)] text-sm">
-                                        <button onClick={goToRoot} className="text-orange-400 hover:text-orange-300">{repoName}</button>
-                                        {currentPath.split("/").map((part, i, arr) => (
-                                            <span key={i} className="flex items-center gap-1">
-                                                <span className="text-[var(--kit-text-muted)]">/</span>
-                                                <button onClick={() => setCurrentPath(arr.slice(0, i + 1).join("/"))} className={i === arr.length - 1 ? "text-white font-medium" : "text-orange-400 hover:text-orange-300"}>{part}</button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                                {currentPath && <button onClick={navigateUp} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--kit-text-muted)] hover:bg-[var(--kit-surface-2)] transition-colors border-b border-[var(--kit-border)]"><span>📂</span> ..</button>}
-                                {tree === undefined ? (
-                                    <div className="p-8 text-center text-sm text-[var(--kit-text-muted)]">Loading...</div>
-                                ) : !tree.entries || tree.entries.length === 0 ? (
-                                    <div className="p-12 text-center">
-                                        <div className="text-3xl mb-3">📭</div>
-                                        <p className="text-sm text-[var(--kit-text-muted)]">{currentPath ? "This directory is empty." : "This repository is empty. Add a file to get started!"}</p>
-                                        {isOwner && !currentPath && <button onClick={openFileModal} className="mt-4 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">+ Add your first file</button>}
+                                {viewingFile && fileData ? (
+                                    <div className="glass rounded-xl overflow-hidden">
+                                        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--kit-border)]">
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => setViewingFile(null)} className="text-xs text-orange-400 hover:text-orange-300">← Back</button>
+                                                <span className="text-sm code-font text-white">{getFileIcon(viewingFile)} {viewingFile}</span>
+                                            </div>
+                                            <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400">{detectLanguage(viewingFile)}</span>
+                                        </div>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full"><tbody>
+                                                {fileData.content.split("\n").map((line, i) => (
+                                                    <tr key={i} className="hover:bg-white/[0.02]">
+                                                        <td className="px-4 py-0 text-right select-none text-xs code-font text-[var(--kit-text-muted)]/40 w-12">{i + 1}</td>
+                                                        <td className="px-4 py-0"><pre className="text-sm code-font text-[var(--kit-text)] whitespace-pre">{line}</pre></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody></table>
+                                        </div>
                                     </div>
                                 ) : (
-                                    [...tree.entries].sort((a, b) => { if (a.type === "tree" && b.type !== "tree") return -1; if (a.type !== "tree" && b.type === "tree") return 1; return a.name.localeCompare(b.name); }).map(entry => {
-                                        const filePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
-                                        const lastCommit = entry.type === "blob" && fileCommits?.[filePath];
-                                        return (
-                                            <button key={entry.name} onClick={() => handleEntryClick(entry)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--kit-surface-2)] transition-colors border-b border-[var(--kit-border)] last:border-b-0">
-                                                <span>{entry.type === "tree" ? "📁" : getFileIcon(entry.name)}</span>
-                                                <span className={entry.type === "tree" ? "text-orange-400 font-medium" : "text-white"}>{entry.name}</span>
-                                                <span className="ml-auto text-xs text-[var(--kit-text-muted)]">{entry.type === "blob" ? detectLanguage(entry.name) : ""}</span>
-                                                {lastCommit && (
-                                                    <div className="hidden sm:flex items-center gap-2 text-xs text-[var(--kit-text-muted)] ml-4">
-                                                        <span className="truncate max-w-[150px]">{lastCommit.message}</span>
-                                                        <span>{formatTimeAgo(lastCommit.timestamp * 1000)}</span>
-                                                    </div>
-                                                )}
-                                            </button>
-                                        );
-                                    })
-                                )}
-                            </div>
-                            {/* README display - only at root level when not viewing a file */}
-                            {!viewingFile && !currentPath && readme && readme.content && (
-                                <div className="glass rounded-xl p-6 mt-6">
-                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--kit-border)]">
-                                        <span className="text-lg">📖</span>
-                                        <h3 className="text-sm font-semibold text-white">README.md</h3>
-                                    </div>
-                                    <Markdown content={readme.content} />
-                                </div>
-                            )}
-                            </>
-                        )}
-                    </>
-                )}
-
-                {/* Commits Tab */}
-                {tab === "commits" && (
-                    <div className="space-y-2">
-                        {commits === undefined ? <div className="glass rounded-xl p-8 text-center text-sm text-[var(--kit-text-muted)]">Loading commits...</div>
-                            : commits.length === 0 ? <div className="glass rounded-xl p-12 text-center"><div className="text-3xl mb-3">📝</div><p className="text-sm text-[var(--kit-text-muted)]">No commits yet.</p></div>
-                                : commits.map(c => (
-                                    <div key={c.hash} className="glass rounded-xl p-4 hover:border-orange-500/30 transition-all">
-                                        <div className="flex items-start justify-between">
-                                            <div><p className="text-sm font-medium text-white mb-1">{c.message}</p><p className="text-xs text-[var(--kit-text-muted)]">{c.author} committed {formatDate(c.timestamp)}</p></div>
-                                            <code className="text-xs code-font text-orange-400 bg-orange-400/10 px-2 py-1 rounded">{c.hash.slice(0, 8)}</code>
+                                    <>
+                                        <div className="glass rounded-xl overflow-hidden">
+                                            {currentPath && (
+                                                <div className="flex items-center gap-1 px-4 py-3 border-b border-[var(--kit-border)] text-sm">
+                                                    <button onClick={goToRoot} className="text-orange-400 hover:text-orange-300">{repoName}</button>
+                                                    {currentPath.split("/").map((part, i, arr) => (
+                                                        <span key={i} className="flex items-center gap-1">
+                                                            <span className="text-[var(--kit-text-muted)]">/</span>
+                                                            <button onClick={() => setCurrentPath(arr.slice(0, i + 1).join("/"))} className={i === arr.length - 1 ? "text-white font-medium" : "text-orange-400 hover:text-orange-300"}>{part}</button>
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {currentPath && <button onClick={navigateUp} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--kit-text-muted)] hover:bg-[var(--kit-surface-2)] transition-colors border-b border-[var(--kit-border)]"><span>📂</span> ..</button>}
+                                            {tree === undefined ? (
+                                                <div className="p-8 text-center text-sm text-[var(--kit-text-muted)]">Loading...</div>
+                                            ) : !tree.entries || tree.entries.length === 0 ? (
+                                                <div className="p-12 text-center">
+                                                    <div className="text-3xl mb-3">📭</div>
+                                                    <p className="text-sm text-[var(--kit-text-muted)]">{currentPath ? "This directory is empty." : "This repository is empty. Add a file to get started!"}</p>
+                                                    {isOwner && !currentPath && <button onClick={openFileModal} className="mt-4 px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">+ Add your first file</button>}
+                                                </div>
+                                            ) : (
+                                                [...tree.entries].sort((a, b) => { if (a.type === "tree" && b.type !== "tree") return -1; if (a.type !== "tree" && b.type === "tree") return 1; return a.name.localeCompare(b.name); }).map(entry => {
+                                                    const filePath = currentPath ? `${currentPath}/${entry.name}` : entry.name;
+                                                    const lastCommit = entry.type === "blob" && fileCommits?.[filePath];
+                                                    return (
+                                                        <button key={entry.name} onClick={() => handleEntryClick(entry)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-[var(--kit-surface-2)] transition-colors border-b border-[var(--kit-border)] last:border-b-0">
+                                                            <span>{entry.type === "tree" ? "📁" : getFileIcon(entry.name)}</span>
+                                                            <span className={entry.type === "tree" ? "text-orange-400 font-medium" : "text-white"}>{entry.name}</span>
+                                                            <span className="ml-auto text-xs text-[var(--kit-text-muted)]">{entry.type === "blob" ? detectLanguage(entry.name) : ""}</span>
+                                                            {lastCommit && (
+                                                                <div className="hidden sm:flex items-center gap-2 text-xs text-[var(--kit-text-muted)] ml-4">
+                                                                    <span className="truncate max-w-[150px]">{lastCommit.message}</span>
+                                                                    <span>{formatTimeAgo(lastCommit.timestamp * 1000)}</span>
+                                                                </div>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })
+                                            )}
                                         </div>
-                                    </div>
-                                ))}
-                    </div>
-                )}
-
-                {/* Threads Tab */}
-                {tab === "threads" && (
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-medium text-[var(--kit-text-muted)]">{threads ? `${threads.length} thread${threads.length !== 1 ? "s" : ""}` : "Loading..."}</h3>
-                            {user && <button onClick={() => setShowThreadModal(true)} className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">+ New Thread</button>}
-                        </div>
-                        {threads === undefined ? <div className="glass rounded-xl p-8 text-center text-sm text-[var(--kit-text-muted)]">Loading threads...</div>
-                            : threads.length === 0 ? (
-                                <div className="glass rounded-xl p-12 text-center">
-                                    <div className="text-3xl mb-3">🧵</div>
-                                    <h3 className="text-lg font-semibold text-white mb-2">No threads yet</h3>
-                                    <p className="text-sm text-[var(--kit-text-muted)] mb-4">Start a discussion about this project!</p>
-                                    {user && <button onClick={() => setShowThreadModal(true)} className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">Start a Thread</button>}
-                                </div>
-                            ) : threads.map(thread => (
-                                <div key={thread._id} className="glass rounded-xl p-5 hover:border-orange-500/30 transition-all">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${thread.status === "open" ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-purple-500/20 text-purple-400 border border-purple-500/30"}`}>{thread.status === "open" ? "● Open" : "✓ Resolved"}</span>
-                                        <h4 className="text-sm font-semibold text-white">{thread.title}</h4>
-                                    </div>
-                                    <p className="text-xs text-[var(--kit-text-muted)] line-clamp-2 mb-2">{thread.body}</p>
-                                    <div className="flex items-center gap-3 text-xs text-[var(--kit-text-muted)]">
-                                        <span>by <span className="text-orange-400">{thread.authorUsername}</span></span>
-                                        <span>{formatTimeAgo(thread.timestamp)}</span>
-                                        {(thread.replyCount || 0) > 0 && <span>💬 {thread.replyCount} replies</span>}
-                                    </div>
-                                </div>
-                            ))}
-                    </div>
-                )}
-
-                {/* Patches Tab */}
-                {tab === "patches" && (
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                {(["open", "merged", "closed", "all"] as const).map(f => (
-                                    <button key={f} onClick={() => setPatchFilter(f)} className={`text-xs px-3 py-1 rounded-full transition-all ${patchFilter === f ? "bg-orange-500/20 text-orange-400 border border-orange-500/40" : "text-[var(--kit-text-muted)] hover:text-white"}`}>
-                                        {f === "open" ? "● Open" : f === "merged" ? "✓ Merged" : f === "closed" ? "✕ Closed" : "All"}
-                                    </button>
-                                ))}
-                            </div>
-                            {user && <button onClick={() => setShowPatchModal(true)} className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">+ New Patch</button>}
-                        </div>
-                        {patches === undefined ? <div className="glass rounded-xl p-8 text-center text-sm text-[var(--kit-text-muted)]">Loading patches...</div>
-                            : filteredPatches.length === 0 ? (
-                                <div className="glass rounded-xl p-12 text-center">
-                                    <div className="text-3xl mb-3">🩹</div>
-                                    <h3 className="text-lg font-semibold text-white mb-2">No {patchFilter !== "all" ? patchFilter : ""} patches</h3>
-                                    <p className="text-sm text-[var(--kit-text-muted)] mb-4">Submit a patch to propose changes!</p>
-                                </div>
-                            ) : filteredPatches.map(patch => (
-                                <div key={patch._id} className="glass rounded-xl p-5 hover:border-orange-500/30 transition-all">
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${patch.status === "open" ? "bg-green-500/20 text-green-400 border border-green-500/30" : patch.status === "merged" ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"}`}>
-                                                    {patch.status === "open" ? "● Open" : patch.status === "merged" ? "✓ Merged" : "✕ Closed"}
-                                                </span>
-                                                <h4 className="text-sm font-semibold text-white">{patch.title}</h4>
-                                            </div>
-                                            <p className="text-xs text-[var(--kit-text-muted)] line-clamp-2 mb-2">{patch.description}</p>
-                                            <div className="flex items-center gap-3 text-xs text-[var(--kit-text-muted)]">
-                                                <span>by <span className="text-orange-400">{patch.authorUsername}</span></span>
-                                                <span>{formatTimeAgo(patch.timestamp)}</span>
-                                                <span className="code-font">{patch.sourceBranch} → {patch.targetBranch}</span>
-                                            </div>
-                                        </div>
-                                        {isOwner && patch.status === "open" && (
-                                            <div className="flex gap-1 ml-3">
-                                                <button onClick={() => mergePatch({ patchId: patch._id, userId: user!.id as Id<"users"> })} className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all">Merge</button>
-                                                <button onClick={() => closePatch({ patchId: patch._id, userId: user!.id as Id<"users"> })} className="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all">Close</button>
+                                        {/* README display - only at root level when not viewing a file */}
+                                        {!viewingFile && !currentPath && readme && readme.content && (
+                                            <div className="glass rounded-xl p-6 mt-6">
+                                                <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[var(--kit-border)]">
+                                                    <span className="text-lg">📖</span>
+                                                    <h3 className="text-sm font-semibold text-white">README.md</h3>
+                                                </div>
+                                                <Markdown content={readme.content} />
                                             </div>
                                         )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                )}
+                                    </>
+                                )}
+                            </>
+                        )}
 
+                        {/* Commits Tab */}
+                        {tab === "commits" && (
+                            <div className="space-y-2">
+                                {commits === undefined ? <div className="glass rounded-xl p-8 text-center text-sm text-[var(--kit-text-muted)]">Loading commits...</div>
+                                    : commits.length === 0 ? <div className="glass rounded-xl p-12 text-center"><div className="text-3xl mb-3">📝</div><p className="text-sm text-[var(--kit-text-muted)]">No commits yet.</p></div>
+                                        : commits.map(c => (
+                                            <div key={c.hash} className="glass rounded-xl p-4 hover:border-orange-500/30 transition-all">
+                                                <div className="flex items-start justify-between">
+                                                    <div><p className="text-sm font-medium text-white mb-1">{c.message}</p><p className="text-xs text-[var(--kit-text-muted)]">{c.author} committed {formatDate(c.timestamp)}</p></div>
+                                                    <code className="text-xs code-font text-orange-400 bg-orange-400/10 px-2 py-1 rounded">{c.hash.slice(0, 8)}</code>
+                                                </div>
+                                            </div>
+                                        ))}
+                            </div>
+                        )}
+
+                        {/* Threads Tab */}
+                        {tab === "threads" && (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-sm font-medium text-[var(--kit-text-muted)]">{threads ? `${threads.length} thread${threads.length !== 1 ? "s" : ""}` : "Loading..."}</h3>
+                                    {user && <button onClick={() => setShowThreadModal(true)} className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">+ New Thread</button>}
+                                </div>
+                                {threads === undefined ? <div className="glass rounded-xl p-8 text-center text-sm text-[var(--kit-text-muted)]">Loading threads...</div>
+                                    : threads.length === 0 ? (
+                                        <div className="glass rounded-xl p-12 text-center">
+                                            <div className="text-3xl mb-3">🧵</div>
+                                            <h3 className="text-lg font-semibold text-white mb-2">No threads yet</h3>
+                                            <p className="text-sm text-[var(--kit-text-muted)] mb-4">Start a discussion about this project!</p>
+                                            {user && <button onClick={() => setShowThreadModal(true)} className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">Start a Thread</button>}
+                                        </div>
+                                    ) : threads.map(thread => (
+                                        <div key={thread._id} className="glass rounded-xl p-5 hover:border-orange-500/30 transition-all">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full ${thread.status === "open" ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-purple-500/20 text-purple-400 border border-purple-500/30"}`}>{thread.status === "open" ? "● Open" : "✓ Resolved"}</span>
+                                                <h4 className="text-sm font-semibold text-white">{thread.title}</h4>
+                                            </div>
+                                            <p className="text-xs text-[var(--kit-text-muted)] line-clamp-2 mb-2">{thread.body}</p>
+                                            <div className="flex items-center gap-3 text-xs text-[var(--kit-text-muted)]">
+                                                <span>by <span className="text-orange-400">{thread.authorUsername}</span></span>
+                                                <span>{formatTimeAgo(thread.timestamp)}</span>
+                                                {(thread.replyCount || 0) > 0 && <span>💬 {thread.replyCount} replies</span>}
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
+
+                        {/* Patches Tab */}
+                        {tab === "patches" && (
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        {(["open", "merged", "closed", "all"] as const).map(f => (
+                                            <button key={f} onClick={() => setPatchFilter(f)} className={`text-xs px-3 py-1 rounded-full transition-all ${patchFilter === f ? "bg-orange-500/20 text-orange-400 border border-orange-500/40" : "text-[var(--kit-text-muted)] hover:text-white"}`}>
+                                                {f === "open" ? "● Open" : f === "merged" ? "✓ Merged" : f === "closed" ? "✕ Closed" : "All"}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {user && <button onClick={() => setShowPatchModal(true)} className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium transition-all">+ New Patch</button>}
+                                </div>
+                                {patches === undefined ? <div className="glass rounded-xl p-8 text-center text-sm text-[var(--kit-text-muted)]">Loading patches...</div>
+                                    : filteredPatches.length === 0 ? (
+                                        <div className="glass rounded-xl p-12 text-center">
+                                            <div className="text-3xl mb-3">🩹</div>
+                                            <h3 className="text-lg font-semibold text-white mb-2">No {patchFilter !== "all" ? patchFilter : ""} patches</h3>
+                                            <p className="text-sm text-[var(--kit-text-muted)] mb-4">Submit a patch to propose changes!</p>
+                                        </div>
+                                    ) : filteredPatches.map(patch => (
+                                        <div key={patch._id} className="glass rounded-xl p-5 hover:border-orange-500/30 transition-all">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${patch.status === "open" ? "bg-green-500/20 text-green-400 border border-green-500/30" : patch.status === "merged" ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" : "bg-red-500/20 text-red-400 border border-red-500/30"}`}>
+                                                            {patch.status === "open" ? "● Open" : patch.status === "merged" ? "✓ Merged" : "✕ Closed"}
+                                                        </span>
+                                                        <h4 className="text-sm font-semibold text-white">{patch.title}</h4>
+                                                    </div>
+                                                    <p className="text-xs text-[var(--kit-text-muted)] line-clamp-2 mb-2">{patch.description}</p>
+                                                    <div className="flex items-center gap-3 text-xs text-[var(--kit-text-muted)]">
+                                                        <span>by <span className="text-orange-400">{patch.authorUsername}</span></span>
+                                                        <span>{formatTimeAgo(patch.timestamp)}</span>
+                                                        <span className="code-font">{patch.sourceBranch} → {patch.targetBranch}</span>
+                                                    </div>
+                                                </div>
+                                                {isOwner && patch.status === "open" && (
+                                                    <div className="flex gap-1 ml-3">
+                                                        <button onClick={() => mergePatch({ patchId: patch._id, userId: user!.id as Id<"users"> })} className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-all">Merge</button>
+                                                        <button onClick={() => closePatch({ patchId: patch._id, userId: user!.id as Id<"users"> })} className="text-xs px-2 py-1 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all">Close</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
+
+                    </div>
                 </div>
-            </div>
 
                 {/* Sidebar */}
                 <aside className="hidden lg:block w-72 flex-shrink-0">
@@ -483,7 +483,7 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                                                 <span>•</span>
                                                 <span>{formatTimeAgo(repoStats.latestCommit.timestamp * 1000)}</span>
                                             </div>
-                                            <code className="mt-2 block text-orange-400 code-font text-[10px]">{repoStats.latestCommit.hash}</code>
+                                            <code className="mt-2 block text-orange-400 code-font text-[10px] truncate overflow-hidden">{repoStats.latestCommit.hash.slice(0, 12)}</code>
                                         </div>
                                     </div>
                                 )}
