@@ -718,17 +718,22 @@ function simpleHash(content: string): string {
  * Since Convex runs in a serverless environment, we use atob for base64
  */
 function decodeObject(base64Data: string): string {
-    // The data is zlib-compressed. In Convex serverless we can't use Node's zlib.
-    // So instead, we store decompressed content as base64 in our objects table.
-    // The CLI will send uncompressed base64 content for Convex compatibility.
+    // Decode base64 to binary bytes, then properly decode as UTF-8.
+    // atob() alone corrupts multi-byte UTF-8 characters (emojis, etc.)
     try {
         const binary = atob(base64Data);
-        // Skip the Git object header: "type size\0"
-        const nullIndex = binary.indexOf("\0");
-        if (nullIndex !== -1) {
-            return binary.slice(nullIndex + 1);
+        // Convert binary string to Uint8Array for proper UTF-8 decoding
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
         }
-        return binary;
+        const decoded = new TextDecoder("utf-8").decode(bytes);
+        // Skip the Git object header: "type size\0"
+        const nullIndex = decoded.indexOf("\0");
+        if (nullIndex !== -1) {
+            return decoded.slice(nullIndex + 1);
+        }
+        return decoded;
     } catch {
         return base64Data;
     }
