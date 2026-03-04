@@ -225,9 +225,9 @@ export default function RepoPage({ params }: { params: Promise<{ username: strin
                     )}
                 </div>
 
-                <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex flex-col lg:flex-row gap-8">
                     {/* Main Content */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
                         {/* Clone */}
                         <div className="glass rounded-xl p-3 mb-6 flex items-center gap-3">
                             <span className="text-xs text-[var(--kit-text-muted)]">Clone:</span>
